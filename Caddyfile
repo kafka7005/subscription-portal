@@ -1,0 +1,19 @@
+{$SITE_DOMAIN} {
+    encode zstd gzip
+    header X-Content-Type-Options nosniff
+    header Referrer-Policy strict-origin-when-cross-origin
+    @foreign expression `{http.request.header.Origin} != "" && {http.request.header.Origin} != "https://{$SITE_DOMAIN}" && !({http.request.method} in ["GET","HEAD","OPTIONS"])`
+    respond @foreign 403
+    handle /api/* {
+        reverse_proxy https://{$BOT_API_HOST} {
+            header_down Cache-Control "no-store"
+            header_up Host {$BOT_API_HOST}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}

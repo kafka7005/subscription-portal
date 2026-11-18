@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#191b18" />
+    <title>Service Portal Admin</title>
+    <!-- Installation metadata is static: Safari need not execute the SPA. -->
+    <link rel="manifest" href="/manifest-admin.webmanifest" />
+    <link rel="icon" href="/icons/logo.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Service Portal Admin" />
+    <style>
+      @font-face { font-family: Golos; src: url('/assets/fonts/GolosText-Variable.ttf') format('truetype'); font-display: swap; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100svh; background: #191b18; color: #f3f3ef; font: 16px/1.6 Golos, system-ui, sans-serif; }
+      main { width: min(100%, 560px); margin-inline: auto; padding: max(36px, env(safe-area-inset-top)) 24px max(36px, env(safe-area-inset-bottom)); }
+      header { display: flex; align-items: center; gap: 12px; margin-bottom: 48px; font-weight: 650; }
+      img { width: 44px; height: 44px; }
+      h1 { font-size: clamp(28px, 7vw, 36px); line-height: 1.15; letter-spacing: -.035em; margin: 0 0 18px; }
+      h2 { margin-top: 28px; font-size: 18px; }
+      p, li { color: #b8bcb0; }
+      strong { color: #f3f3ef; }
+      ol { padding-left: 24px; }
+      li + li { margin-top: 12px; }
+      a { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; max-width: 100%; padding: 10px 20px; border-radius: 10px; background: #c4f05c; color: #191b18; text-decoration: none; font-weight: 650; margin-top: 20px; }
+      a:focus-visible { outline: 3px solid #f3f3ef; outline-offset: 4px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header><img src="/icons/logo.svg" alt="" />Service Portal Admin</header>
+      <h1>Админка на экране «Домой»</h1>
+      <p>Добавьте ярлык именно с этой страницы. Он будет запускать админку, а не личный кабинет.</p>
+      <h2>На iPhone</h2>
+      <ol>
+        <li>Откройте эту страницу в <strong>Safari</strong>.</li>
+        <li>Нажмите <strong>«Поделиться» → «На экран “Домой”»</strong>.</li>
+        <li>Убедитесь, что название — <strong>Service Portal Admin</strong>, и нажмите «Добавить».</li>
+      </ol>
+      <h2>На Android</h2>
+      <p>В меню браузера выберите «Установить приложение» или «Добавить на главный экран».</p>
+      <p>Если при запуске потребуется вход, после авторизации откроется админка. Старый ярлык кабинета останется отдельным.</p>
+      <a href="/admin">Открыть админку</a>
+    </main>
+  </body>
+</html>

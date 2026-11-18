@@ -1,0 +1,16 @@
+services:
+  site:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?set SITE_DOMAIN}
+      BOT_API_HOST: ${BOT_API_HOST:?set BOT_API_HOST}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./dist:/srv:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  caddy_data:
+  caddy_config:

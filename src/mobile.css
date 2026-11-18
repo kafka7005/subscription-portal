@@ -1,0 +1,12 @@
+/* Safari enlarges focused text fields below 16px. Keep a shared minimum across
+   the landing, cabinet, admin and portalled dialogs, including touch tablets.
+   This must win over component font shorthands; manual page zoom stays enabled. */
+@media (max-width: 999px), (any-pointer: coarse) {
+  input:not([type]),
+  input:is([type='text'], [type='email'], [type='password'], [type='search'], [type='tel'], [type='url'], [type='number'], [type='date'], [type='time'], [type='datetime-local'], [type='month'], [type='week']),
+  textarea,
+  select,
+  [contenteditable='true'] {
+    font-size: max(16px, 1em) !important;
+  }
+}

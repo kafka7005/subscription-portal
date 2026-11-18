@@ -1,0 +1,63 @@
+/* Нижнее меню-остров, поле ввода чата, перерасчёт при смене тарифа. */
+
+/* ---------- Нижнее меню на телефоне — «остров» ---------- */
+@media (max-width: 999px) {
+  .tabbar {
+    left: 12px; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom));
+    padding: 6px; gap: 2px; border-radius: 26px;
+    background: linear-gradient(180deg, rgba(38, 38, 38, .88), rgba(20, 20, 20, .9));
+    border: 1px solid rgba(255, 255, 255, .1); border-top-color: rgba(255, 255, 255, .16);
+    box-shadow: 0 20px 44px -10px rgba(0, 0, 0, .75), 0 2px 8px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .08);
+    backdrop-filter: blur(20px) saturate(160%);
+    animation: island-in .45s var(--ease);
+  }
+  .tab-link { padding: 8px 2px 7px; border-radius: 20px; transition: background .25s var(--ease), color .2s, transform .15s var(--ease); }
+  .tab-link:active { transform: scale(.94); }
+  .tab-link.active { background: rgba(255, 255, 255, .1); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
+  .tab-link.active .icon { color: var(--accent); transform: translateY(-1px); }
+  .tab-link .icon { transition: transform .25s var(--ease), color .2s; }
+  .app-main { padding-bottom: calc(118px + env(safe-area-inset-bottom)); }
+  .theme-admin .app-main { padding-bottom: 48px; }
+  .toasts { bottom: calc(100px + env(safe-area-inset-bottom)); }
+  .pay-bar { bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .theme-cabinet .chat-screen { height: calc(100dvh - 60px - 36px - 96px - env(safe-area-inset-bottom) - var(--banner-h, 0px)); }
+}
+@keyframes island-in { from { opacity: 0; transform: translateY(24px) scale(.96); } to { opacity: 1; transform: none; } }
+
+/* ---------- Продление: карточка подписки не прилипает к шагам ---------- */
+.checkout { display: flex; flex-direction: column; gap: 18px; }
+.checkout > .page-head { margin-bottom: 0; }
+
+/* ---------- Перерасчёт при смене тарифа ---------- */
+.switch-note { display: flex; gap: 10px; padding: 12px 14px; border-radius: 14px; font-size: 13.5px; line-height: 1.45; color: #cfe3a8; background: rgba(139, 168, 82, .1); border: 1px solid rgba(139, 168, 82, .35); }
+.switch-note .icon { flex: none; margin-top: 1px; color: var(--accent); }
+
+/* ---------- Поле ввода чата: кнопка отправки снаружи справа ---------- */
+.composer-row { display: flex; align-items: flex-end; gap: 10px; padding: 0; border-radius: 0; background: none; box-shadow: none; }
+.composer-row:focus-within { box-shadow: none; }
+.composer-field { flex: 1; min-width: 0; display: flex; align-items: flex-end; gap: 4px; padding: 5px 8px 5px 5px; border-radius: 22px; background: rgba(0, 0, 0, .45); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); transition: box-shadow .2s var(--ease); }
+.composer-field:focus-within { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2), 0 0 0 3px rgba(139, 168, 82, .18); }
+.composer-field textarea { flex: 1; min-width: 0; resize: none; border: 0; outline: 0; background: transparent; color: var(--card-fg); font: inherit; font-size: 14.5px; line-height: 1.45; padding: 9px 4px; max-height: 180px; }
+.composer-field textarea::placeholder { color: #7a7a7a; }
+.send-btn { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(180deg, #a3c162, #86a54c); color: #0b0f05; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 8px 20px -8px rgba(139, 168, 82, .7); }
+.send-btn:disabled { opacity: .35; box-shadow: none; }
+.composer-hint { font-size: 11.5px; color: var(--card-muted); margin: -2px 0 0 4px; }
+@media (hover: none) { .composer-hint { display: none; } }
+
+/* ---------- Редактор меню кабинета ---------- */
+.menu-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.menu-row { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; background: var(--card-soft); border: 1px solid var(--card-line); flex-wrap: wrap; }
+.menu-row.is-off { opacity: .55; }
+.menu-move { display: flex; flex-direction: column; }
+.menu-move .icon-btn { width: 28px; height: 22px; border-radius: 6px; }
+.rot-up .icon { transform: rotate(90deg); }
+.rot-down .icon { transform: rotate(-90deg); }
+.menu-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: rgba(0, 0, 0, .3); flex: none; }
+.menu-names { flex: 1; min-width: 200px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; align-items: center; }
+.menu-names .badge { grid-column: 1 / -1; justify-self: start; }
+.menu-flags { display: flex; gap: 14px; }
+.menu-flags .toggle { font-size: 13px; gap: 8px; }
+.menu-preview { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 6px; border-radius: 22px; background: linear-gradient(180deg, rgba(38, 38, 38, .9), rgba(20, 20, 20, .9)); border: 1px solid rgba(255, 255, 255, .1); }
+.menu-preview .tab-link { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px; border-radius: 18px; font-size: 11px; color: #8a8a8a; }
+.menu-preview .tab-link.active { color: #fff; background: rgba(255, 255, 255, .1); }
+.menu-preview .tab-link.active .icon { color: var(--accent); }

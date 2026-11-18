@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#050505" />
+    <script>
+      try {
+        document.documentElement.dataset.theme = 'dark';
+        document.documentElement.lang = localStorage.getItem('portal-language') === 'en' ? 'en' : 'ru';
+      } catch { /* Use the default dark Russian interface when storage is unavailable. */ }
+    </script>
+    <link rel="icon" href="/icons/logo.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Service Portal" />
+    <script>
+      // Select before React loads so installation uses the current section.
+      if (/^\/admin(?:\/|$)/.test(location.pathname)) {
+        document.querySelector('link[rel="manifest"]').href = '/manifest-admin.webmanifest';
+        document.querySelector('meta[name="apple-mobile-web-app-title"]').content = 'Service Portal Admin';
+      }
+    </script>
+    <link rel="preload" href="/assets/stickers/archivo-variable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/assets/fonts/GolosText-Variable.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="preload" href="/assets/fonts/RobotoCondensed.ttf" as="font" type="font/ttf" crossorigin />
+    <meta name="description" content="Service Portal — одна подписка для телефона и компьютера. Выбери срок и количество устройств." />
+    <title>Service Portal</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

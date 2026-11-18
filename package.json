@@ -1,0 +1,21 @@
+{
+  "name": "portal-site",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "node --test src/landing/lib/pricing.test.js src/lib/paymentPolicy.test.js src/lib/country.test.js src/lib/chatDrafts.test.js src/lib/safeNext.test.js",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-router-dom": "^7.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.2.1",
+    "vite": "8.3.5"
+  }
+}

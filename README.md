@@ -94,7 +94,11 @@ git rev-parse HEAD
 ```bash
 BOT_DIR=/root/bot
 BOT_UNIT=bot.service
-git clone https://github.com/kafka7005/subscription-portal.git "$HOME/portal-module-src"
+if [ -d "$HOME/portal-module-src/.git" ]; then
+  git -C "$HOME/portal-module-src" fetch origin main
+else
+  git clone https://github.com/kafka7005/subscription-portal.git "$HOME/portal-module-src"
+fi
 cd "$HOME/portal-module-src"
 read -rp 'Вставьте SHA с сервера сайта: ' REV
 git checkout --detach "$REV"
@@ -203,7 +207,24 @@ read -rp 'Полный путь к копии: ' backup
 )
 ```
 
-Этот откат восстанавливает раздаваемый сайт. Сохранённый SHA позволяет собрать ту же версию позже. Если обновлялся модуль, на сервере бота перенесите текущий каталог `portal_custom_api` за пределы `modules/`, скопируйте на его место каталог из копии раздела 4 и перезапустите службу. Состояние PostgreSQL и Redis обслуживается средствами бота.
+Этот откат восстанавливает раздаваемый сайт. Сохранённый SHA позволяет собрать ту же версию позже. Если обновлялся модуль, выполните на сервере бота (укажите свои BOT_DIR и BOT_UNIT из раздела 4):
+
+```bash
+read -rp 'Полный путь к сохранённому каталогу portal_custom_api: ' saved_module
+(
+  set -eu
+  : "${BOT_DIR:?Укажите каталог бота}" "${BOT_UNIT:?Укажите службу бота}"
+  sudo test -s "$saved_module/api.py"
+  staged=$(sudo mktemp -d "$BOT_DIR/.portal-restore.XXXXXX")
+  sudo cp -a "$saved_module" "$staged/portal_custom_api"
+  sudo mv "$BOT_DIR/modules/portal_custom_api" "$staged/previous"
+  sudo mv "$staged/portal_custom_api" "$BOT_DIR/modules/portal_custom_api"
+  sudo systemctl restart "$BOT_UNIT"
+  sudo systemctl is-active "$BOT_UNIT"
+)
+```
+
+ Состояние PostgreSQL и Redis обслуживается средствами бота.
 
 ## 8. Диагностика
 

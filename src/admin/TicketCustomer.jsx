@@ -24,6 +24,7 @@ function SubscriptionLink({ sub, expanded, related, version }) {
   const toast = useToast();
   const { isAdmin } = useAuth();
   const path = `/admin/subscriptions/${encodeURIComponent(sub.client_id)}`;
+  // The subscription limit includes unused slots. HWID counts only linked devices.
   const needDetails = open || sub.device_limit === undefined;
   const state = useLoad(signal => needDetails ? api.get(path, null, { signal }) : null, [needDetails, path, version]);
   const limit = state.data?.device_limit === undefined ? sub.device_limit : state.data.device_limit;

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { rub } from '../lib/format.js';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { Icon, useToast } from '../ui/index.jsx';
@@ -29,6 +30,7 @@ export default function DailyBonus({ onClaimed }) {
   const enabled = Boolean(config?.features?.daily_bonus_enabled);
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [lastAmount, setLastAmount] = useState(null);
   const [credited, setCredited] = useState(false);
   useEffect(() => {
     if (!credited) return;
@@ -50,6 +52,7 @@ export default function DailyBonus({ onClaimed }) {
     try {
       const r = await api.post('/bonus/daily/me/claim');
       if (r?.ok === false) throw new Error(r.reason || 'Бонус пока недоступен');
+      setLastAmount(Number.isFinite(r.amount) ? r.amount : null);
       setCredited(true);
       if (r.state) setState(r.state); else await load();
       onClaimed?.();
@@ -70,7 +73,7 @@ export default function DailyBonus({ onClaimed }) {
       {busy ? 'Начисляем…' : 'Забрать бонус'}
     </button>}
     <div className="bonus-receipt" role="status">
-      {credited && <span>Зачислено на баланс</span>}
+      {!ready && (credited || lastAmount != null) && <span>Зачислено на баланс{lastAmount != null && <> <strong>+{rub(lastAmount)}</strong></>}</span>}
     </div>
   </section>;
 }

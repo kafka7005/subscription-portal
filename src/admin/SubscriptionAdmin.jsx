@@ -91,7 +91,7 @@ function LocationModal({ open, onClose, sub, onDone }) {
   </Modal>;
 }
 
-function Devices({ clientId }) {
+export function Devices({ clientId, allowResetAll = true }) {
   const toast = useToast();
   const confirm = useConfirm();
   const state = useLoad((signal) => api.get(`/admin/subscriptions/${enc(clientId)}/hwid`, null, { signal }), [clientId]);
@@ -103,7 +103,7 @@ function Devices({ clientId }) {
     try { const r = await api.post(`/admin/subscriptions/${enc(clientId)}/hwid/reset`); toast(r.message || 'Готово'); state.reload(true); } catch (err) { toast.error(err); }
   };
   const devices = state.data?.devices || [];
-  return <Card title={`Устройства${devices.length ? ` · ${devices.length}` : ''}`} actions={devices.length > 0 && <Button size="sm" variant="ghost" onClick={resetAll}>Отвязать все</Button>}>
+  return <Card title={`Устройства${devices.length ? ` · ${devices.length}` : ''}`} actions={allowResetAll && devices.length > 0 && <Button size="sm" variant="ghost" onClick={resetAll}>Отвязать все</Button>}>
     {state.loading ? <Spinner /> : state.error ? <ErrorBox error={state.error} onRetry={state.reload} /> : state.data?.supported === false
       ? <p className="muted">Для этой панели список устройств недоступен.</p>
       : devices.length === 0 ? <Empty icon="device" title="Устройств нет" />

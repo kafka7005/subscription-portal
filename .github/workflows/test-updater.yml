@@ -1,0 +1,46 @@
+name: Test site updater
+on:
+  push:
+    paths: [scripts/update.sh, .github/workflows/test-updater.yml]
+  pull_request:
+    paths: [scripts/update.sh, .github/workflows/test-updater.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Update an existing static installation
+        shell: bash
+        run: |
+          set -eu
+          git clone --bare . "$RUNNER_TEMP/upstream.git"
+          git clone "$RUNNER_TEMP/upstream.git" "$RUNNER_TEMP/installation"
+          cd "$RUNNER_TEMP/installation"
+          cp .env.example .env
+          printf '\nVITE_BRAND_NAME="Updater Test"\n' >> .env
+          echo '<svg xmlns="http://www.w3.org/2000/svg" id="custom-icon"/>' > public/icons/logo.svg
+          mkdir -p dist/assets
+          echo previous > dist/index.html
+          echo '{}' > dist/manifest-admin.webmanifest
+          echo old-chunk > dist/assets/previous.js
+          git clone "$RUNNER_TEMP/upstream.git" "$RUNNER_TEMP/author"
+          git -C "$RUNNER_TEMP/author" -c user.name=Test -c user.email=ci@example.invalid commit --allow-empty -m update
+          git -C "$RUNNER_TEMP/author" push
+          bash scripts/update.sh --check
+          bash scripts/update.sh
+          test "$(git rev-parse HEAD)" = "$(git -C "$RUNNER_TEMP/author" rev-parse HEAD)"
+          grep -q 'Updater Test' dist/manifest.webmanifest
+          cmp public/icons/logo.svg dist/icons/logo.svg
+          grep -qx old-chunk dist/assets/previous.js
+          cp dist/index.html "$RUNNER_TEMP/current.html"
+          echo 'VITE_BRAND_NAME="!"' >> .env
+          if bash scripts/update.sh; then exit 1; fi
+          cmp dist/index.html "$RUNNER_TEMP/current.html"
+          bash scripts/update.sh --rollback
+          grep -qx previous dist/index.html

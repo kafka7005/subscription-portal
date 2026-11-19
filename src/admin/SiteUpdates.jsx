@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { dateTime } from '../lib/format.js';
 import { Button, Card } from '../ui/index.jsx';
 
 const labels = {
@@ -65,8 +66,11 @@ export default function SiteUpdates() {
     {state && <dl className="kv-list">
       <div className="kv-row"><dt>Установлена</dt><dd>{state.current?.slice(0,8) || 'Версия не записана'}</dd></div>
       <div className="kv-row"><dt>В репозитории</dt><dd>{state.latest?.slice(0,8) || '—'}</dd></div>
+      <div className="kv-row"><dt>Последняя проверка</dt><dd>{dateTime(state.checked)}</dd></div>
     </dl>}
-    {canUpdate && <Button className="self-start" busy={sending} disabled={sending || Boolean(error)} onClick={apply}>Обновить сайт</Button>}
+    {canUpdate && <Button className="self-start" busy={sending} disabled={sending || Boolean(error)} onClick={apply}>
+      {state.phase === 'failed' ? 'Повторить обновление' : 'Обновить сайт'}
+    </Button>}
     {state?.phase==='current' && <Button className="self-start" variant="secondary" onClick={()=>window.location.reload()}>Перезагрузить страницу</Button>}
   </div></Card>;
 }

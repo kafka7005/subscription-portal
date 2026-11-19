@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
-import { rub } from '../lib/format.js';
 import { Icon, useToast } from '../ui/index.jsx';
 
 // Ежедневный бонус на баланс (тумблер DAILY_BONUS_ENABLED в настройках бота → раздел бонусов).
@@ -30,10 +29,10 @@ export default function DailyBonus({ onClaimed }) {
   const enabled = Boolean(config?.features?.daily_bonus_enabled);
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [credited, setCredited] = useState(null);
+  const [credited, setCredited] = useState(false);
   useEffect(() => {
-    if (credited == null) return;
-    const timer = setTimeout(() => setCredited(null), 2800);
+    if (!credited) return;
+    const timer = setTimeout(() => setCredited(false), 2800);
     return () => clearTimeout(timer);
   }, [credited]);
   const left = useCountdown(state && !state.can_claim ? state.seconds_left : 0);
@@ -43,7 +42,7 @@ export default function DailyBonus({ onClaimed }) {
   useEffect(() => { if (state && !state.can_claim && state.seconds_left && left === 0) load(); }, [left]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!enabled || !state?.enabled) return null;
-  const ready = state.can_claim && credited == null;
+  const ready = state.can_claim && !credited;
 
   const claim = async () => {
     if (!ready || busy) return;
@@ -51,16 +50,13 @@ export default function DailyBonus({ onClaimed }) {
     try {
       const r = await api.post('/bonus/daily/me/claim');
       if (r?.ok === false) throw new Error(r.reason || 'Бонус пока недоступен');
-      setCredited(r.amount);
+      setCredited(true);
       if (r.state) setState(r.state); else await load();
       onClaimed?.();
     } catch (err) { toast.error(err); await load(); } finally { setBusy(false); }
   };
 
-  const amountText = state.mode === 'random' && state.amount_min !== state.amount_max
-    ? `${rub(state.amount_min)}–${rub(state.amount_max)}` : rub(state.amount_next);
-
-  return <section className="bonus-reward" data-phase={ready ? 'ready' : credited != null ? 'credited' : 'waiting'} aria-label="Ежедневный бонус">
+  return <section className="bonus-reward" data-phase={ready ? 'ready' : credited ? 'credited' : 'waiting'} aria-label="Ежедневный бонус">
     <span className="bonus-emblem" aria-hidden="true">
       <Icon key={ready ? 'gift' : 'check'} name={ready ? 'gift' : 'check'} size={21} />
     </span>
@@ -71,11 +67,10 @@ export default function DailyBonus({ onClaimed }) {
         : `Следующий через ${clock(left)}${state.streak ? ` · серия ${state.streak} дн.` : ''}`}</small>
     </div>
     {ready && <button type="button" className="bonus-claim" onClick={claim} disabled={busy} aria-busy={busy}>
-      <span>{busy ? 'Начисляем…' : 'Забрать бонус'}</span>
-      <strong>{amountText}</strong>
+      {busy ? 'Начисляем…' : 'Забрать бонус'}
     </button>}
     <div className="bonus-receipt" role="status">
-      {credited != null && <>На баланс <strong>+{rub(credited)}</strong></>}
+      {credited && <span>Зачислено на баланс</span>}
     </div>
   </section>;
 }

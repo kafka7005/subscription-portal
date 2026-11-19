@@ -186,13 +186,12 @@ html.cabinet-graphite .theme-cabinet .cabinet-account h2 { font-size: 24px; lett
 .bonus-details strong { font-size:16px; line-height:1.25; color:var(--cab-ink); }
 .bonus-details small { font-size:12px; color:var(--cab-muted); font-variant-numeric:tabular-nums; }
 .bonus-claim,.bonus-receipt:not(:empty) {
-  grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; gap:8px;
+  grid-column:1/-1; display:flex; justify-content:center; align-items:center; gap:8px;
   flex-wrap:wrap; min-height:46px; padding:9px 14px; border-radius:10px; font-size:15px;
 }
 .bonus-claim { background:#c4f05c; color:#1b2310; font-weight:650; cursor:pointer; }
 .bonus-claim:focus-visible { outline:2px solid var(--cab-ink); outline-offset:3px; }
 .bonus-claim:disabled { cursor:wait; }
-.bonus-claim strong,.bonus-receipt strong { font-variant-numeric:tabular-nums; }
 @media (hover:hover) { .bonus-claim:hover:enabled { background:#d0f782; } }
 .bonus-receipt:empty { position:absolute; width:1px; height:1px; overflow:hidden; }
 .bonus-receipt:not(:empty) { color:var(--cab-accent); background:var(--cab-surface); }
@@ -202,7 +201,7 @@ html.cabinet-graphite .theme-cabinet .cabinet-account h2 { font-size: 24px; lett
     content:''; position:absolute; inset:0; border:2px solid currentColor; border-radius:50%;
     pointer-events:none; animation:bonus-ripple .7s ease-out both;
   }
-  .bonus-receipt:not(:empty) strong { animation:bonus-credit .45s ease-out both; }
+  .bonus-receipt:not(:empty) span { animation:bonus-credit .45s ease-out both; }
 }
 @keyframes bonus-stamp {
   0% { transform:perspective(160px) rotateY(-85deg) scale(.75); }

@@ -4,6 +4,9 @@
     header Referrer-Policy strict-origin-when-cross-origin
     @foreign expression `{http.request.header.Origin} != "" && {http.request.header.Origin} != "https://{$SITE_DOMAIN}" && !({http.request.method} in ["GET","HEAD","OPTIONS"])`
     respond @foreign 403
+    handle /_site-update/* {
+        reverse_proxy unix//run/portal-site-updater/api.sock
+    }
     handle /api/* {
         reverse_proxy https://{$BOT_API_HOST} {
             header_down Cache-Control "no-store"

@@ -1,3 +1,4 @@
+import SiteUpdates from './SiteUpdates.jsx';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useDocumentTitle } from '../lib/hooks.js';
@@ -63,8 +64,11 @@ function DocEditor({ doc, onSaved, onDelete }) {
   </div>;
 }
 
+import { useAuth } from '../lib/auth.jsx';
+
 export default function SiteAdmin() {
   useDocumentTitle('Сайт');
+  const { isAdmin } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
   const [params, setParams] = useSearchParams();
@@ -115,8 +119,9 @@ export default function SiteAdmin() {
 
   return <>
     <PageHead title="Сайт" subtitle="Технические работы, плашка и меню кабинета, FAQ, страница загрузки, документы." />
-    <Tabs value={tab} onChange={(v) => setParams({ tab: v })} tabs={[{ value: 'maintenance', label: 'Технические работы' }, { value: 'banner', label: 'Плашка' }, { value: 'status', label: 'Статус сервиса' }, { value: 'menu', label: 'Меню' }, { value: 'faq', label: 'FAQ' }, { value: 'downloads', label: 'Загрузка' }, { value: 'docs', label: 'Документы' }]} />
+    <Tabs value={tab} onChange={(v) => setParams({ tab: v })} tabs={[...(isAdmin ? [{ value: 'updates', label: 'Обновления' }] : []), { value: 'maintenance', label: 'Технические работы' }, { value: 'banner', label: 'Плашка' }, { value: 'status', label: 'Статус сервиса' }, { value: 'menu', label: 'Меню' }, { value: 'faq', label: 'FAQ' }, { value: 'downloads', label: 'Загрузка' }, { value: 'docs', label: 'Документы' }]} />
 
+    {tab === 'updates' && isAdmin && <SiteUpdates />}
     {tab === 'maintenance' && <Card>
       <div className="stack">
         <div className="row-between">

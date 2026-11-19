@@ -42,6 +42,7 @@ if [[ $mode == rollback ]]; then
   [[ -f "$state/previous/target" && -s "$state/previous/dist/index.html" ]] || die 'Нет сохранённой версии.'
   [[ $(cat "$state/previous/target") == "$target" ]] || die 'Укажите тот же --web-root, что при обновлении.'
   publish "$state/previous/dist"
+  if [[ ! -f "$state/previous/dist/portal-version.txt" ]]; then rm -f -- "$target/portal-version.txt"; fi
   echo 'Предыдущая сборка восстановлена.'
   exit 0
 fi
@@ -60,6 +61,7 @@ if ! docker info >/dev/null 2>&1; then docker_cmd=(sudo docker); fi
   -v "$root:/app" -v "$stage:/output" -w /app node:24-bookworm-slim \
   sh -ec 'npm ci && npm test && npm run build -- --outDir /output'
 [[ -s "$stage/index.html" && -s "$stage/manifest-admin.webmanifest" && -d "$stage/assets" ]] || die 'Сборка неполная.'
+git rev-parse HEAD > "$stage/portal-version.txt"
 backup=$(mktemp -d "$state/backup.XXXXXXXX")
 mkdir "$backup/dist"
 cp -a "$target/." "$backup/dist/"

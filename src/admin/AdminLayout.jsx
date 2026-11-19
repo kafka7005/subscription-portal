@@ -1,3 +1,4 @@
+import { UpdateNotice } from './SiteUpdates.jsx';
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import ErrorBoundary from '../ui/ErrorBoundary.jsx';
@@ -31,6 +32,7 @@ export function adminNav({ isAdmin, unanswered, partnerOn, payouts }) {
   ].filter(Boolean);
 }
 
+
 export default function AdminLayout() {
   const { isAdmin, logout, me, config } = useAuth();
   const navigate = useNavigate();
@@ -56,6 +58,7 @@ export default function AdminLayout() {
 
   const items = adminNav({ isAdmin, unanswered, payouts, partnerOn: config?.features?.partner_enabled });
   const footer = <>
+    {isAdmin && <UpdateNotice />}
     <Button variant="ghost" size="sm" icon="download" href="/admin-install.html">На экран «Домой»</Button>
     <Button variant="secondary" size="sm" icon="home" to="/cabinet">Мой кабинет</Button>
     <Button variant="ghost" size="sm" icon="logout" onClick={async () => { await logout(); navigate('/', { replace: true }); }}>Выйти</Button>

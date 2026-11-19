@@ -8,6 +8,7 @@ services:
     ports: ["80:80", "443:443"]
     volumes:
       - ./dist:/srv:ro
+      - /run/portal-site-updater:/run/portal-site-updater:ro
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config

@@ -1,9 +1,9 @@
 name: Test site updater
 on:
   push:
-    paths: [scripts/update.sh, .github/workflows/test-updater.yml]
+    paths: [ops/site-updater/**, scripts/update.sh, .github/workflows/test-updater.yml]
   pull_request:
-    paths: [scripts/update.sh, .github/workflows/test-updater.yml]
+    paths: [ops/site-updater/**, scripts/update.sh, .github/workflows/test-updater.yml]
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
+      - run: python3 -m unittest discover -s ops/site-updater
       - name: Update an existing static installation
         shell: bash
         run: |

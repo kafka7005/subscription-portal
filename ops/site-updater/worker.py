@@ -23,11 +23,51 @@ def installed():
         return None
 
 def git(*args):
-    return subprocess.check_output(['git','-C',str(SOURCE),*args],timeout=40,text=True).strip()
+    return subprocess.check_output(['git','-C',str(SOURCE),*args],timeout=40,encoding='utf-8').strip()
+
+NOTES_FILE = 'docs/release-notes.json'
+
+def notes_at(version):
+    if not SHA.fullmatch(version or ''):
+        raise ValueError('Unknown version')
+    if not git('ls-tree', version, '--', NOTES_FILE):
+        return []
+    blob = f'{version}:{NOTES_FILE}'
+    if int(git('cat-file', '-s', blob)) > 524288:
+        raise ValueError('Release notes are too large')
+    entries = json.loads(git('show', blob))
+    if not isinstance(entries, list):
+        raise ValueError('Expected release list')
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or not all(isinstance(entry.get(k), str) and entry[k] for k in ('id','title')):
+            raise ValueError('Invalid release')
+        if entry['id'] in seen:
+            raise ValueError('Duplicate release')
+        seen.add(entry['id'])
+        for key in ('changes','verify'):
+            if not isinstance(entry.get(key), list) or not all(isinstance(s,str) for s in entry[key]):
+                raise ValueError('Invalid release details')
+    return entries
+
+def release_notes(current, latest):
+    try:
+        entries = notes_at(latest)
+        if current == latest:
+            return {'scope':'installed', 'items':entries[:1]}
+        try:
+            previous = {entry['id'] for entry in notes_at(current)}
+        except (ValueError, OSError, subprocess.SubprocessError):
+            return {'scope':'latest', 'items':entries[:1]}
+        return {'scope':'pending', 'items':[e for e in entries if e['id'] not in previous]}
+    except (ValueError, OSError, subprocess.SubprocessError):
+        return {'scope':'unavailable', 'items':[]}
 
 def write(phase, latest, checked):
     new = STATE.with_suffix('.tmp')
-    new.write_text(json.dumps(dict(phase=phase,current=installed(),latest=latest,checked=checked)))
+    current = installed()
+    new.write_text(json.dumps(dict(phase=phase, current=current, latest=latest, checked=checked,
+                                   notes=release_notes(current, latest))))
     new.chmod(0o644)
     new.replace(STATE)
 

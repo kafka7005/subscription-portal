@@ -50,4 +50,49 @@ def get_router():
                 "reason": "Причина отказа не сохранена в журнале бота" if attempt.status == "canceled" else None})
         return {"items": items, "total": int(total or 0)}
 
+    @router.get("/balance-history")
+    async def balance_history(request: Request, identity=Depends(verify_identity_token),
+                              session: AsyncSession = Depends(get_session),
+                              limit: int = Query(20, ge=1, le=50), offset: int = Query(0, ge=0, le=100000)):
+        from api.depends import get_request_actor
+        from database.models import User
+        from database.models.bonuses import DailyBonusClaim as Bonus
+        from database.models.payments import Payment
+        from database.models.subscription_events import SubscriptionEvent as Event
+        from sqlalchemy import Float, case, cast, literal, union_all
+
+        actor = get_request_actor(request)
+        uid = getattr(actor, "billing_user_id", None)
+        if uid is None:
+            uid = await session.scalar(select(User.id).where(User.identity_id == identity.id)
+                                       .order_by(User.id).limit(1))
+        if uid is None:
+            return {"items": [], "has_more": False}
+
+        # A successful invoice or a key's sticker price alone does not prove a wallet debit.
+        bonus = select(Bonus.id.label("id"), Bonus.created_at.label("at"),
+                       literal("bonus").label("kind"), Bonus.amount.label("amount")).where(
+            Bonus.user_id == uid, Bonus.amount > 0)
+        topup = select(Payment.id, Payment.created_at,
+                       case((Payment.payment_system == "admin", "adjustment"), else_="topup"),
+                       Payment.amount).where(
+            Payment.user_id == uid, Payment.status == "success", Payment.currency == "RUB",
+            (Payment.payment_system == "admin") | ((Payment.metadata_["payment_flow"].as_string() == "balance_topup")
+                                                   & (Payment.amount > 0)), Payment.amount != 0)
+        events = select(Event.id, Event.created_at,
+                        case((Event.event_type == "created", "issued"),
+                             (Event.event_type == "addons", "addons"),
+                             (Event.price_rub < 0, "tariff_credit"), else_="renewal"),
+                        case((Event.event_type == "created", cast(None, Float)), else_=-Event.price_rub)).where(
+            Event.user_id == uid, (Event.source.is_(None)) | (Event.source != "backfill"),
+            ((Event.event_type == "created") & (Event.price_rub > 0)) |
+            ((Event.event_type == "renewed") & (Event.price_rub != 0)) |
+            ((Event.event_type == "addons") & (Event.price_rub > 0)))
+        activity = union_all(bonus, topup, events).subquery()
+        rows = (await session.execute(select(activity).order_by(
+            activity.c.at.desc(), activity.c.kind, activity.c.id.desc()).offset(offset).limit(limit + 1))).mappings().all()
+        return {"has_more": len(rows) > limit,
+                "items": [{"id": f"{row['kind']}-{row['id']}", "created_at": iso(row["at"]),
+                           "kind": row["kind"], "amount": row["amount"]} for row in rows[:limit]]}
+
     return router

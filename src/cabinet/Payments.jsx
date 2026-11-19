@@ -4,7 +4,7 @@ import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { useDocumentTitle, useLoad } from '../lib/hooks.js';
 import { dateTime, money, paymentStatusLabel, paymentTone, rub } from '../lib/format.js';
-import { Badge, Button, Card, Empty, Input, Loadable, PageHead, Table, useToast } from '../ui/index.jsx';
+import { Badge, Button, Card, Empty, Input, Loadable, Modal, Spinner, ErrorBox, PageHead, Table, useToast } from '../ui/index.jsx';
 import { FeeLine, PaymentPicker, returnUrls, usePaymentChoice } from './PaymentPicker.jsx';
 import PaymentConsents, { usePaymentConsents } from './PaymentConsents.jsx';
 import AutopayManagement from './AutopayManagement.jsx';
@@ -59,10 +59,38 @@ function TopUp({ balance }) {
   </Card>;
 }
 
+const BALANCE_REASON = {
+  bonus: 'Ежедневный бонус', adjustment: 'Корректировка администратором', topup: 'Пополнение баланса',
+  renewal: 'Продление подписки', addons: 'Дополнительные опции', tariff_credit: 'Возврат при перерасчёте тарифа',
+  issued: 'Оформление подписки',
+};
+
+function BalanceHistory({ onClose }) {
+  const [offset, setOffset] = useState(0);
+  const state = useLoad(signal => api.get('/portal/balance-history', { offset, limit: 20 }, { signal }), [offset]);
+  const data = state.data;
+  return <Modal open onClose={onClose} title="Почему изменился баланс?">
+    <div className="stack">
+      <p className="muted">Здесь собраны операции, для которых бот сохранил причину. Сумма со знаком плюс зачислена на баланс, со знаком минус — списана.</p>
+      {state.loading ? <Spinner /> : state.error ? <ErrorBox error={state.error} onRetry={state.reload} />
+        : data?.items?.length ? <ul className="support-payments">{data.items.map(row => <li key={row.id}>
+          <div><strong>{BALANCE_REASON[row.kind] || 'Изменение баланса'}</strong>
+            {row.amount != null && <Badge tone={row.amount > 0 ? 'ok' : 'muted'}>{rub(row.amount, { sign: true })}</Badge>}</div>
+          <small>{dateTime(row.created_at)}{row.amount == null && ' · Сумма списания не записана'}</small>
+        </li>)}</ul> : <p>Записей пока нет.</p>}
+      {(offset > 0 || data?.has_more) && <div className="row">
+        <Button size="sm" variant="secondary" disabled={!offset || state.loading} onClick={() => setOffset(offset - 20)}>Назад</Button>
+        <Button size="sm" variant="secondary" disabled={!data?.has_more || state.loading || Boolean(state.error)} onClick={() => setOffset(offset + 20)}>Дальше</Button>
+      </div>}
+    </div>
+  </Modal>;
+}
+
 export default function Payments() {
   useDocumentTitle('Платежи');
   const { config } = useAuth();
   const { summary } = useOutletContext();
+  const [balanceOpen, setBalanceOpen] = useState(false);
   const [autopayOpen, setAutopayOpen] = useState(false);
   const state = useLoad((signal) => api.get('/auth/me/payments', { limit: 100 }, { signal }), []);
   const topUp = Boolean(config?.features?.balance_enabled);
@@ -70,7 +98,7 @@ export default function Payments() {
     <PageHead title="Платежи" subtitle="Баланс и история оплат. Если оплата прошла, а подписка не появилась — напишите в поддержку с датой и суммой."
       actions={<Button icon="card" onClick={() => setAutopayOpen(true)}>Автоплатежи</Button>} />
     <div className={`payments-layout ${topUp ? 'grid grid-main' : ''}`}>
-      <Card title="История" className="payments-history">
+      <Card title="История" className="payments-history" actions={<Button size="sm" variant="secondary" icon="wallet" onClick={() => setBalanceOpen(true)}>Почему изменился баланс?</Button>}>
         <Loadable state={state}>{(data) => <Table
           rows={data?.payments || []}
           rowKey={(p) => p.id}
@@ -84,6 +112,7 @@ export default function Payments() {
       </Card>
       {topUp && <TopUp balance={summary.data?.balance || 0} />}
     </div>
+    {balanceOpen && <BalanceHistory onClose={() => setBalanceOpen(false)} />}
     {autopayOpen && <AutopayManagement onClose={() => setAutopayOpen(false)} />}
   </>;
 }

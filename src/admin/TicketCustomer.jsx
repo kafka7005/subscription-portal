@@ -5,8 +5,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { useLoad } from '../lib/hooks.js';
-import { copyText, date, dateTime, money, paymentStatusLabel, paymentTone, rub, subscriptionStatus, userName } from '../lib/format.js';
-import { Badge, Button, Card, CopyField, Icon, ErrorBox, IconButton, KeyValue, Modal, Spinner, useToast } from '../ui/index.jsx';
+import { copyText, date, dateTime, money, paymentStatusLabel, paymentTone, ticketStatusLabel, rub, subscriptionStatus, userName } from '../lib/format.js';
+import { Badge, Button, Card, CopyField, Icon, ErrorBox, IconButton, KeyValue, Modal, Pagination, Spinner, useToast } from '../ui/index.jsx';
 
 function CopyValue({ label, value }) {
   const toast = useToast();
@@ -83,6 +83,26 @@ function Payments({ rows, ticket, user, clientLink, version }) {
   </section>;
 }
 
+function RelatedTickets({ ticketId }) {
+  const [offset, setOffset] = useState(0);
+  const state = useLoad(signal => api.get(`/portal/support/tickets/${encodeURIComponent(ticketId)}/related`,
+    { offset, limit: 5 }, { signal }), [ticketId, offset]);
+  const data = state.data;
+  return <section className="customer-fold">
+    <Disclosure label={<><Icon name="chat" size={17} /><span>Другие обращения</span><small>{data?.total ?? ''}</small></>}>
+      {state.loading ? <Spinner /> : state.error ? <ErrorBox error={state.error} onRetry={state.reload} />
+        : data?.items?.length ? <>
+          <ul className="support-payments">{data.items.map(t => <li key={t.id}>
+            <Link className="support-detail-link" target="_blank" rel="noopener noreferrer"
+              to={`/admin/tickets/${encodeURIComponent(t.id)}`}>{t.subject || 'Обращение'} ↗</Link>
+            <small>{dateTime(t.created_at)} · {ticketStatusLabel[t.status] || t.status}</small>
+          </li>)}</ul>
+          <Pagination total={data.total} offset={offset} limit={5} onChange={setOffset} />
+        </> : <p className="muted">Это единственное обращение клиента.</p>}
+    </Disclosure>
+  </section>;
+}
+
 function PartnerSummary({ userId, version }) {
   const state = useLoad((signal) => api.get(`/partners/u${userId}`, null, { signal }), [userId, version]);
   const p = state.data;
@@ -129,6 +149,7 @@ export default function TicketCustomer({ client, context, ticket, version }) {
         {(u || context?.balance != null) && <div className="customer-balance"><span>Баланс</span><strong>{rub(u?.balance ?? context?.balance)}</strong></div>}
       </div>
     </Card>
+    <RelatedTickets key={ticket.id} ticketId={ticket.id} />
     {state.loading && !d ? <Spinner /> : state.error ? <ErrorBox error={state.error} onRetry={state.reload} />
       : !d ? <Card><p className="muted">Нет связанного платёжного профиля.</p></Card> : <>
         {ticket.ref_type === 'payment' && paymentPanel}

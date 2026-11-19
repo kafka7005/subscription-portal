@@ -68,6 +68,22 @@ export default function SiteUpdates() {
       <div className="kv-row"><dt>В репозитории</dt><dd>{state.latest?.slice(0,8) || '—'}</dd></div>
       <div className="kv-row"><dt>Последняя проверка</dt><dd>{dateTime(state.checked)}</dd></div>
     </dl>}
+    {state?.latest && <section className="stack" aria-label="Что нового">
+      <h3>Что нового</h3>
+      {!state.notes ? <p className="muted">Чтобы получать описания версий, обновите службу проверки на сервере по инструкции в репозитории.</p>
+        : state.notes.scope === 'unavailable' ? <p className="muted">Не удалось прочитать описание этой версии.</p>
+        : <>
+          {state.notes.scope === 'latest' && <p className="muted">Установленную версию определить не удалось. Показано последнее описание.</p>}
+          {state.notes.scope === 'installed' && <small className="muted">В установленной версии</small>}
+          {state.notes.items.length === 0 && <p className="muted">Отдельного описания изменений для этой версии пока нет.</p>}
+          {state.notes.items.map((note, i) => <details key={note.id} open={i === 0}>
+            <summary><strong>{note.title}</strong></summary>
+            <ul>{note.changes.map(s => <li key={s}>{s}</li>)}</ul>
+            <strong>Как проверить</strong>
+            <ol>{note.verify.map(s => <li key={s}>{s}</li>)}</ol>
+          </details>)}
+        </>}
+    </section>}
     {canUpdate && <Button className="self-start" busy={sending} disabled={sending || Boolean(error)} onClick={apply}>
       {state.phase === 'failed' ? 'Повторить обновление' : 'Обновить сайт'}
     </Button>}

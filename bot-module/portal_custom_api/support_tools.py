@@ -45,6 +45,20 @@ async def require_ticket(session,ticket_id):
 def get_router():
     router=APIRouter(prefix='/api/portal/support/tickets',tags=['Portal support workspace'])
 
+    @router.get('/{ticket_id}/related')
+    async def related(ticket_id: UUID, identity=Depends(verify_identity_agent),
+                      session: AsyncSession = Depends(get_session),
+                      limit: int = Query(5, ge=1, le=30), offset: int = Query(0, ge=0, le=100000)):
+        from database.models.tickets import Ticket
+        current = await require_ticket(session, ticket_id)
+        scope = (Ticket.identity_id == current.identity_id, Ticket.id != current.id)
+        total = await session.scalar(select(func.count()).select_from(Ticket).where(*scope))
+        rows = await session.execute(
+            select(Ticket.id, Ticket.subject, Ticket.status, Ticket.created_at).where(*scope)
+            .order_by(Ticket.created_at.desc(), Ticket.id.desc()).offset(offset).limit(limit)
+        )
+        return {"total": total, "items": [dict(row) for row in rows.mappings()]}
+
     @router.post('/{ticket_id}/presence')
     async def presence(body:Presence,ticket_id:UUID,identity=Depends(verify_identity_agent),session:AsyncSession=Depends(get_session)):
         from core.redis_cache import _get_redis

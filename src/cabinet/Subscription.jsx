@@ -86,6 +86,15 @@ export default function Subscription() {
   const status = subscriptionStatus(d);
   const left = remaining(d.expiry_time);
   const devices = devicesState.data?.devices || [];
+  const list = devicesState.data;
+  const used = !list?.unavailable && Array.isArray(list?.devices) ? list.devices.length
+    : connection.data?.connected_devices ?? null;
+  const full = d.device_limit > 0 && used != null && used >= d.device_limit;
+  const online = connection.data?.is_online;
+  const showDevices = () => {
+    setModal(null);
+    requestAnimationFrame(() => document.getElementById('subscription-device-list')?.focus());
+  };
   const reloadAll = () => { details.reload(true); keys.reload(true); devicesState.reload(true); connection.reload(true); };
 
   const canUnbind =!deviceActions.blocked && actions.can_reset_hwid !== false && actionsCfg.hwid_reset_enabled !== false && config?.features?.hwid_reset_enabled !== false;
@@ -107,7 +116,7 @@ export default function Subscription() {
     {d.is_frozen && <div className="notice notice-warn">Подписка заморожена. Напишите в поддержку, если это неожиданно.</div>}
 
     <div className="grid grid-main">
-      <Card title={`Устройства${d.device_limit ? ` · ${d.connected_devices ?? devices.length} из ${d.device_limit}` : ''}`}
+      <Card id="subscription-device-list" tabIndex={-1} title={`Устройства${d.device_limit ? ` · ${used ?? '—'} из ${d.device_limit}` : ''}`}
         actions={<>
           {d.addons_devices_enabled && actionsCfg.addons_enabled !== false && <Button variant="secondary" size="sm" icon="plus" onClick={() => setModal('addons')}>Добавить</Button>}
         </>}>
@@ -136,7 +145,7 @@ export default function Subscription() {
             ['Устройств', d.device_limit || '—'],
             ['Трафик', d.traffic_limit_gb ? `${d.used_traffic_gb ?? 0} из ${d.traffic_limit_gb} ГБ` : `${d.used_traffic_gb != null ? `${Number(d.used_traffic_gb).toFixed(1)} ГБ · ` : ''}без ограничений`],
             connection.data?.server_name && ['Локация', connection.data.server_name],
-            connection.data && ['Статус', connection.data.online || connection.data.is_online ? <Badge tone="ok">В сети</Badge> : <Badge tone="muted">Не в сети</Badge>],
+            connection.data && ['Статус', online == null ? 'Нет данных' : online ? <Badge tone="ok">В сети</Badge> : <Badge tone="muted">Не в сети</Badge>],
           ]} />
         </Card>
         {subscriptionUrl(sub) && <Card title="Ссылка подписки">
@@ -149,13 +158,30 @@ export default function Subscription() {
           <div className="action-list">
             <button type="button" onClick={() => setModal('rename')}><Icon name="tag" /><span>Переименовать</span><Icon name="arrow" size={16} /></button>
             {actions.can_change_location && actionsCfg.country_change_enabled !== false && config?.features?.country_selection_enabled && <button type="button" onClick={() => setModal('location')}><Icon name="globe" /><span>Сменить локацию</span><Icon name="arrow" size={16} /></button>}
-            {config?.features?.support_tickets_enabled !== false && <button type="button" onClick={() => navigate(`/cabinet/support?ref=${enc(clientId)}`)}><Icon name="chat" /><span>Проблема с подключением</span><Icon name="arrow" size={16} /></button>}
+            <button type="button" onClick={() => setModal('diagnostics')}><Icon name="help" /><span>Не удаётся подключиться?</span><Icon name="arrow" size={16} /></button>
             {actions.can_delete && actionsCfg.delete_enabled !== false && <button type="button" className="danger" onClick={deleteSub}><Icon name="trash" /><span>Удалить подписку</span><Icon name="arrow" size={16} /></button>}
           </div>
         </Card>
       </div>
     </div>
 
+    <Modal open={modal === 'diagnostics'} onClose={() => setModal(null)} title="Проверка подключения">
+      <div className="stack">
+        <KeyValue items={[
+          ['Подписка', status.label], ['Действует до', dateTime(d.expiry_time)],
+          ['Сейчас в сети', online == null ? 'Нет данных' : online ? 'Да' : 'Нет'],
+          connection.data?.online_at && ['Последняя активность', dateTime(connection.data.online_at)],
+          ['Привязано устройств', used ?? 'Нет данных'],
+          ['Мест в подписке', d.device_limit == null ? 'Нет данных' : d.device_limit || 'Без ограничения'],
+        ]} />
+        <p>{d.is_frozen ? 'Подписка заморожена. Уточните условия активации в поддержке.'
+          : left.expired ? 'Срок подписки закончился. Для подключения её нужно продлить.'
+          : full ? 'Все места заняты. Проверьте список устройств перед подключением нового.'
+          : 'Откройте приложение, обновите подписку и попробуйте подключиться ещё раз.'}</p>
+        {full && <Button variant="secondary" icon="device" onClick={showDevices}>Посмотреть устройства</Button>}
+        {config?.features?.support_tickets_enabled !== false && <Button icon="chat" to={`/cabinet/support?ref=${enc(clientId)}`}>Написать в поддержку</Button>}
+      </div>
+    </Modal>
     <RenameModal open={modal === 'rename'} sub={d} onClose={() => setModal(null)} onSaved={reloadAll} />
     {modal === 'addons' && <AddonsModal open sub={d} onClose={(changed) => { setModal(null); if (changed) reloadAll(); }} />}
     {modal === 'location' && <LocationModal open sub={d} onClose={(changed) => { setModal(null); if (changed) reloadAll(); }} />}

@@ -125,18 +125,3 @@
   .sub-card-actions { grid-template-columns: 1fr; }
   .sub-card-actions .btn { flex-direction: row; min-height: 44px; border-radius: 999px; font-size: 14px; }
 }
-
-/* ---------- Ежедневный бонус в главной карточке ---------- */
-.daily-bonus { position: relative; display: flex; align-items: center; gap: 12px; margin-top: 6px; padding: 10px 10px 10px 12px; border-radius: 16px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .08); max-width: 460px; animation: fade-up .4s var(--ease); }
-.daily-bonus.is-ready { border-color: rgba(233, 196, 106, .45); background: linear-gradient(100deg, rgba(233, 196, 106, .14), rgba(0, 0, 0, .3) 60%); }
-.daily-icon { width: 36px; height: 36px; flex: none; border-radius: 11px; display: grid; place-items: center; color: #e9c46a; background: rgba(233, 196, 106, .12); }
-.is-ready .daily-icon { animation: wiggle 2.4s ease-in-out infinite; }
-.daily-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.daily-text strong { font-size: 14px; }
-.daily-text span { font-size: 12.5px; color: var(--card-muted); }
-.daily-btn { flex: none; height: 36px; padding: 0 16px; border-radius: 999px; background: linear-gradient(180deg, #f2d27d, #d9ad45); color: #2a1d00; font-weight: 700; font-size: 14px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 6px 18px -6px rgba(233, 196, 106, .7); transition: transform .15s var(--ease), filter .2s; }
-.daily-btn:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
-.daily-btn:active:not(:disabled) { transform: scale(.96); }
-.daily-burst { position: absolute; right: 18px; top: -6px; font-weight: 800; color: #f2d27d; pointer-events: none; animation: burst 1.8s var(--ease) forwards; text-shadow: 0 4px 16px rgba(233, 196, 106, .6); }
-@keyframes burst { 0% { opacity: 0; transform: translateY(6px) scale(.8); } 20% { opacity: 1; transform: translateY(-8px) scale(1.15); } 100% { opacity: 0; transform: translateY(-36px) scale(1); } }
-@keyframes wiggle { 0%, 80%, 100% { transform: rotate(0); } 85% { transform: rotate(-12deg); } 90% { transform: rotate(10deg); } 95% { transform: rotate(-6deg); } }

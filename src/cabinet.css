@@ -170,15 +170,48 @@ html.cabinet-graphite .theme-cabinet .cabinet-account h2 { font-size: 24px; lett
 .account-binding.is-missing .icon:last-child { color: var(--cab-warn); }
 .account-profile { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; font-size: 12px; margin-top: 14px; color: var(--cab-muted); }
 .account-profile:hover { color: var(--cab-accent); }
-html.cabinet-graphite .theme-cabinet .cabinet-account .daily-bonus { margin: 16px 0 0; padding: 20px 0 0; display: flex; flex-wrap: wrap; gap: 12px; background: none; border: 0; border-top: 1px solid var(--cab-line); border-radius: 0; box-shadow: none; }
-.cabinet-account .daily-icon { display: none; }
-.cabinet-account .daily-text { flex: 1 1 120px; }
-html.cabinet-graphite .theme-cabinet .cabinet-account .daily-text strong { color: var(--cab-ink); font-size: 17px; }
-html.cabinet-graphite .theme-cabinet .cabinet-account .daily-text span { color: var(--cab-muted); font-size: 12px; }
-.cabinet-account .daily-amount { display: block; margin: 8px 0; }
-.cabinet-account .daily-amount b { color: var(--cab-accent); font-size: 26px; font-weight: 650; white-space: nowrap; }
-html.cabinet-graphite .theme-cabinet .daily-btn { color: var(--cab-ink); background: transparent; box-shadow: inset 0 0 0 1px var(--cab-line); border-radius: 8px; min-height: 44px; padding: 0 14px; font-size: 13px; }
-html.cabinet-graphite .theme-cabinet .daily-btn:hover { background: var(--cab-soft); }
+.bonus-reward {
+  display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:12px;
+  margin-top:16px; padding:14px; border-radius:14px; background:var(--cab-soft);
+}
+.bonus-reward[data-phase="ready"], .bonus-reward[data-phase="credited"] {
+  background:color-mix(in srgb,var(--cab-accent) 9%,var(--cab-surface));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cab-accent) 32%,var(--cab-surface));
+}
+.bonus-emblem {
+  position:relative; display:grid; place-items:center; width:38px; height:38px; border-radius:50%;
+  background:var(--cab-surface); color:var(--cab-accent);
+}
+.bonus-details { display:grid; gap:3px; }
+.bonus-details strong { font-size:16px; line-height:1.25; color:var(--cab-ink); }
+.bonus-details small { font-size:12px; color:var(--cab-muted); font-variant-numeric:tabular-nums; }
+.bonus-claim,.bonus-receipt:not(:empty) {
+  grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; gap:8px;
+  flex-wrap:wrap; min-height:46px; padding:9px 14px; border-radius:10px; font-size:15px;
+}
+.bonus-claim { background:#c4f05c; color:#1b2310; font-weight:650; cursor:pointer; }
+.bonus-claim:focus-visible { outline:2px solid var(--cab-ink); outline-offset:3px; }
+.bonus-claim:disabled { cursor:wait; }
+.bonus-claim strong,.bonus-receipt strong { font-variant-numeric:tabular-nums; }
+@media (hover:hover) { .bonus-claim:hover:enabled { background:#d0f782; } }
+.bonus-receipt:empty { position:absolute; width:1px; height:1px; overflow:hidden; }
+.bonus-receipt:not(:empty) { color:var(--cab-accent); background:var(--cab-surface); }
+@media (prefers-reduced-motion:no-preference) {
+  .bonus-reward[data-phase="credited"] .bonus-emblem svg { animation:bonus-stamp .55s ease-out both; }
+  .bonus-reward[data-phase="credited"] .bonus-emblem::after {
+    content:''; position:absolute; inset:0; border:2px solid currentColor; border-radius:50%;
+    pointer-events:none; animation:bonus-ripple .7s ease-out both;
+  }
+  .bonus-receipt:not(:empty) strong { animation:bonus-credit .45s ease-out both; }
+}
+@keyframes bonus-stamp {
+  0% { transform:perspective(160px) rotateY(-85deg) scale(.75); }
+  70% { transform:perspective(160px) rotateY(8deg) scale(1.12); }
+  100% { transform:none; }
+}
+@keyframes bonus-ripple { from { opacity:.65; transform:scale(.8); } to { opacity:0; transform:scale(1.45); } }
+@keyframes bonus-credit { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+
 
 /* Quieter services use content and separators, not a grid of identical icon tiles. */
 .cabinet-services { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px; padding: 26px 0; border-block: 1px solid var(--cab-line); }

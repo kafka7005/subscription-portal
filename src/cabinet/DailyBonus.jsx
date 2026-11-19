@@ -30,7 +30,12 @@ export default function DailyBonus({ onClaimed }) {
   const enabled = Boolean(config?.features?.daily_bonus_enabled);
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [burst, setBurst] = useState(null);
+  const [credited, setCredited] = useState(null);
+  useEffect(() => {
+    if (credited == null) return;
+    const timer = setTimeout(() => setCredited(null), 2800);
+    return () => clearTimeout(timer);
+  }, [credited]);
   const left = useCountdown(state && !state.can_claim ? state.seconds_left : 0);
 
   const load = () => api.get('/bonus/daily/me').then(setState).catch(() => setState(null));
@@ -38,36 +43,39 @@ export default function DailyBonus({ onClaimed }) {
   useEffect(() => { if (state && !state.can_claim && state.seconds_left && left === 0) load(); }, [left]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!enabled || !state?.enabled) return null;
-  const ready = state.can_claim;
+  const ready = state.can_claim && credited == null;
 
   const claim = async () => {
+    if (!ready || busy) return;
     setBusy(true);
     try {
       const r = await api.post('/bonus/daily/me/claim');
       if (r?.ok === false) throw new Error(r.reason || 'Бонус пока недоступен');
-      setBurst(r.amount);
-      setTimeout(() => setBurst(null), 1800);
-      toast(`+${rub(r.amount)} на баланс${r.streak > 1 ? ` · серия ${r.streak} дн.` : ''}`);
-      if (r.state) setState(r.state); else load();
+      setCredited(r.amount);
+      if (r.state) setState(r.state); else await load();
       onClaimed?.();
-    } catch (err) { toast.error(err); load(); } finally { setBusy(false); }
+    } catch (err) { toast.error(err); await load(); } finally { setBusy(false); }
   };
 
   const amountText = state.mode === 'random' && state.amount_min !== state.amount_max
     ? `${rub(state.amount_min)}–${rub(state.amount_max)}` : rub(state.amount_next);
 
-  return <div className={`daily-bonus ${ready ? 'is-ready' : ''}`}>
-    <span className="daily-icon"><Icon name="gift" size={18} /></span>
-    <div className="daily-text">
-      <strong>{ready ? 'Бонус дня' : 'Бонус получен'}</strong>
-      {ready && <span className="daily-amount"><b>{amountText}</b> доступны сегодня</span>}
-      <span>{ready
-        ? (state.streak > 0 ? `Серия ${state.streak} дн. — не прерывайте` : 'Заходите каждый день — бонус растёт')
-        : `Следующий через ${clock(left)}${state.streak ? ` · серия ${state.streak} дн.` : ''}`}</span>
+  return <section className="bonus-reward" data-phase={ready ? 'ready' : credited != null ? 'credited' : 'waiting'} aria-label="Ежедневный бонус">
+    <span className="bonus-emblem" aria-hidden="true">
+      <Icon key={ready ? 'gift' : 'check'} name={ready ? 'gift' : 'check'} size={21} />
+    </span>
+    <div className="bonus-details">
+      <strong>{ready ? 'Ежедневный бонус' : 'Бонус получен'}</strong>
+      <small>{ready
+        ? (state.streak ? `Серия: ${state.streak} дн.` : 'Доступен сегодня')
+        : `Следующий через ${clock(left)}${state.streak ? ` · серия ${state.streak} дн.` : ''}`}</small>
     </div>
-    {ready && <button type="button" className="daily-btn" onClick={claim} disabled={busy}>
-      {busy ? <span className="spinner spinner-sm" /> : 'Забрать'}
+    {ready && <button type="button" className="bonus-claim" onClick={claim} disabled={busy} aria-busy={busy}>
+      <span>{busy ? 'Начисляем…' : 'Забрать бонус'}</span>
+      <strong>{amountText}</strong>
     </button>}
-    {burst != null && <span className="daily-burst" aria-hidden="true">+{rub(burst)}</span>}
-  </div>;
+    <div className="bonus-receipt" role="status">
+      {credited != null && <>На баланс <strong>+{rub(credited)}</strong></>}
+    </div>
+  </section>;
 }

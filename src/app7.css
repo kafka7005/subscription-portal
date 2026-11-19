@@ -101,7 +101,7 @@ html.cabinet-light .theme-cabinet .copy-btn { background: #15171a; color: #fff; 
 
 /* Подписки, оформление */
 html.cabinet-light .theme-cabinet .sub-card-icon { background: rgba(20, 24, 30, .04); border-color: rgba(20, 24, 30, .08); }
-html.cabinet-light .theme-cabinet .sub-card-progress, html.cabinet-light .theme-cabinet .summary-lines, html.cabinet-light .theme-cabinet .topup-balance, html.cabinet-light .theme-cabinet .daily-bonus { background: rgba(20, 24, 30, .03); border-color: rgba(20, 24, 30, .07); }
+html.cabinet-light .theme-cabinet .sub-card-progress, html.cabinet-light .theme-cabinet .summary-lines, html.cabinet-light .theme-cabinet .topup-balance { background: rgba(20, 24, 30, .03); border-color: rgba(20, 24, 30, .07); }
 html.cabinet-light .theme-cabinet .progress { background: rgba(20, 24, 30, .08); }
 html.cabinet-light .theme-cabinet .sub-card-glow { opacity: .35; }
 html.cabinet-light .theme-cabinet .plan-tile { background: rgba(20, 24, 30, .025); border-color: rgba(20, 24, 30, .09); }

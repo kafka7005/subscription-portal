@@ -1,3 +1,4 @@
+import { useGiveawayConfig } from '../lib/giveaways.js';
 import { UpdateNotice } from './SiteUpdates.jsx';
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -10,7 +11,7 @@ import { AppBrand, Drawer, MenuButton, Sidebar, useDrawer } from '../ui/shell.js
 
 // Пункты меню и кому они видны. Модератор (role=moderator) работает с клиентами
 // и поддержкой; тарифы, промокоды, серверы и рассылки — только у админа.
-export function adminNav({ isAdmin, unanswered, partnerOn, payouts }) {
+export function adminNav({ isAdmin, unanswered, partnerOn, payouts, giveawaysOn }) {
   return [
     { group: 'Обзор' },
     { to: '/admin', end: true, icon: 'chart', label: 'Сводка' },
@@ -22,6 +23,7 @@ export function adminNav({ isAdmin, unanswered, partnerOn, payouts }) {
     isAdmin && partnerOn && { to: '/admin/partners', icon: 'handshake', label: 'Партнёры', count: payouts },
     isAdmin && { group: 'Продажи' },
     isAdmin && { to: '/admin/tariffs', icon: 'tag', label: 'Тарифы' },
+    giveawaysOn && { to: '/admin/giveaways', icon: 'gift', label: 'Розыгрыши' },
     isAdmin && { to: '/admin/coupons', icon: 'gift', label: 'Промокоды' },
     isAdmin && { group: 'Сервис' },
     isAdmin && { to: '/admin/servers', icon: 'server', label: 'Серверы' },
@@ -56,7 +58,8 @@ export default function AdminLayout() {
     return () => { alive = false; clearInterval(id); };
   }, [isAdmin, location.pathname]);
 
-  const items = adminNav({ isAdmin, unanswered, payouts, partnerOn: config?.features?.partner_enabled });
+  const giveawayConfig = useGiveawayConfig();
+  const items = adminNav({ giveawaysOn: isAdmin && giveawayConfig?.manage, isAdmin, unanswered, payouts, partnerOn: config?.features?.partner_enabled });
   const footer = <>
     {isAdmin && <UpdateNotice />}
     <Button variant="ghost" size="sm" icon="download" href="/admin-install.html">На экран «Домой»</Button>

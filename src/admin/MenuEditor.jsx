@@ -1,3 +1,4 @@
+import { useGiveawayConfig } from '../lib/giveaways.js';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../lib/auth.jsx';
 import { CABINET_SECTIONS, sectionAvailable } from '../cabinet/CabinetLayout.jsx';
@@ -24,7 +25,8 @@ function initialRows(nav) {
 // Админка → Сайт → Меню: порядок разделов кабинета, боковое и нижнее (мобильное) меню.
 export default function MenuEditor({ site, onSave, busy }) {
   const { config } = useAuth();
-  const features = config?.features || {};
+  const giveawayConfig = useGiveawayConfig();
+  const features = { ...config?.features, giveaways_enabled: giveawayConfig?.enabled };
   const [rows, setRows] = useState(() => initialRows(site.nav));
   useEffect(() => { setRows(initialRows(site.nav)); }, [site.nav]);
 

@@ -50,7 +50,7 @@ function Row({ icon, title, value, ok, children }) {
 export default function Profile() {
   useDocumentTitle('Профиль');
   const { me, config, logout } = useAuth();
-  const { summary } = useOutletContext();
+  const { summary, giveawaysVisible } = useOutletContext();
   const toast = useToast();
   const navigate = useNavigate();
   const [modal, setModal] = useState(null);
@@ -92,6 +92,7 @@ export default function Profile() {
       </Card>
     </div>
     <div className="grid grid-2"><ThemeCard /><PushCard /></div>
+    {giveawaysVisible && <Button variant="secondary" icon="gift" to="/cabinet/giveaways">Розыгрыши</Button>}
     <NotificationPreferences />
     <SessionsCard />
     <Link to="/docs" className="profile-docs-link"><Icon name="file" size={15} />Правовые документы</Link>

@@ -1,3 +1,4 @@
+import { useGiveawayConfig } from '../lib/giveaways.js';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth.jsx';
@@ -20,6 +21,7 @@ const EMAIL_REMINDER = 'portal-email-reminder';
 export const CABINET_SECTIONS = [
   { key: 'home', to: '/cabinet', end: true, icon: 'home', label: 'Главная', short: 'Главная', locked: true },
   { key: 'payments', to: '/cabinet/payments', icon: 'card', label: 'Платежи', short: 'Платежи' },
+  { key: 'giveaways', to: '/cabinet/giveaways', icon: 'gift', label: 'Розыгрыши', short: 'Розыгрыши', feature: 'giveaways_enabled' },
   { key: 'gifts', to: '/cabinet/gifts', icon: 'gift', label: 'Подарки', short: 'Подарки', feature: 'gift_enabled' },
   { key: 'partner', to: '/cabinet/partner', icon: 'handshake', label: 'Партнёрка', short: 'Партнёрка', feature: 'partner_enabled' },
   { key: 'faq', to: '/cabinet/faq', icon: 'help', label: 'Частые вопросы', short: 'FAQ' },
@@ -63,7 +65,8 @@ export default function CabinetLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const summary = useLoad((signal) => api.get('/auth/summary', null, { signal }), [me?.id, me?.email, me?.tg_id]);
-  const features = config?.features || {};
+  const giveawayConfig = useGiveawayConfig();
+  const features = { ...config?.features, giveaways_enabled: giveawayConfig?.enabled };
   const site = useSiteSettings();
   const theme = useCabinetTheme();
   useApplyCabinetTheme(theme.light);
@@ -109,7 +112,7 @@ export default function CabinetLayout() {
         <main className="app-main">
           <div className="app-content page-enter" key={location.pathname}>
             <ErrorBoundary resetKey={location.pathname}>
-              <Outlet context={{ summary }} />
+              <Outlet context={{ summary, giveawaysVisible: Boolean(giveawayConfig?.enabled) }} />
             </ErrorBoundary>
           </div>
         </main>

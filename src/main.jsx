@@ -40,6 +40,8 @@ const Maintenance = lazy(() => import('./pages/Maintenance.jsx'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 const AppAuthorize = lazy(() => import('./pages/AppAuthorize.jsx'));
 const PublicFaq = lazy(() => import('./pages/Help.jsx').then((m) => ({ default: m.PublicFaq })));
+const Giveaways = lazy(() => import('./cabinet/Giveaways.jsx'));
+const GiveawaysAdmin = lazy(() => import('./admin/GiveawaysAdmin.jsx'));
 const CabinetFaq = lazy(() => import('./pages/Help.jsx').then((m) => ({ default: m.CabinetFaq })));
 const CabinetLayout = lazy(() => import('./cabinet/CabinetLayout.jsx'));
 const CabinetHome = lazy(() => import('./cabinet/Home.jsx'));
@@ -163,6 +165,7 @@ function App() {
             <Route path="support/:ticketId" element={<Ticket />} />
             <Route path="profile" element={<Profile />} />
             <Route path="status" element={<ServiceStatus />} />
+            <Route path="giveaways/:gid?" element={<Giveaways />} />
             <Route path="faq" element={<CabinetFaq />} />
             <Route path="download" element={<Navigate to="/cabinet?download=1" replace />} />
           </Route>
@@ -175,6 +178,7 @@ function App() {
             <Route path="subscriptions/:clientId" element={<SubscriptionAdmin />} />
             <Route path="payments" element={<AdminPayments />} />
             <Route path="tickets" element={<Tickets />} />
+            <Route path="giveaways/:gid?" element={<GiveawaysAdmin />} />
             <Route path="tickets/:ticketId" element={<TicketAdmin />} />
             <Route path="partners" element={<Partners />} />
             <Route path="tariffs" element={<Tariffs />} />

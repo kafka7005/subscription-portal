@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { useDocumentTitle, useLoad } from '../lib/hooks.js';
-import { Button, Card, ErrorBox, PageHead, Segmented, Spinner } from '../ui/index.jsx';
+import { Button, Card, ErrorBox, PageHead, Segmented, Select, Spinner } from '../ui/index.jsx';
+import { parseBotStats } from './botStatsReport.js';
 import './bot-stats.css';
 
 const sections = [
@@ -11,15 +12,33 @@ const sections = [
   ['modules', 'Модули'], ['charts', 'Графики'],
 ];
 
+function MetricCards({ text, section }) {
+  const { groups, updated } = parseBotStats(text);
+  return <div className="bot-stats-groups">
+    {groups.map(({ title, rows }, groupIndex) => {
+      const tariffTree = section === 'tariffs' && title === 'По тарифам';
+      return <section key={groupIndex}>
+        {title && title !== sections.find(([key]) => key === section)?.[1] && <h3>{title}</h3>}
+        <dl className={tariffTree ? 'bot-stats-tree' : 'bot-stats-metrics'}>
+          {rows.map((row, index) => row.text !== undefined
+            ? <div className="bot-stats-note" key={index}><dt className="sr-only">Пояснение</dt><dd>{row.text}</dd></div>
+            : <div key={index} className="bot-stats-metric" data-primary={section === 'overview' && row.label === 'Оплаты за месяц' || undefined}
+                style={tariffTree ? { '--depth': Math.min(3, row.depth) } : undefined}>
+                <dt>{row.label}</dt><dd>{row.value}</dd>
+              </div>)}
+        </dl>
+      </section>;
+    })}
+    {!groups.length && <p className="muted">Показателей пока нет.</p>}
+    {updated && <small className="bot-stats-updated">{updated} МСК</small>}
+  </div>;
+}
+
 function Report({ section, days }) {
   const chart = section === 'charts';
   const path = '/portal/admin/bot-stats/' + (chart ? 'charts/' + days : section);
   const state = useLoad(signal => api.get(path, null, { signal }), [path]);
   const unavailable = state.error?.status === 404;
-  const reportLines = state.data?.text?.split('\n') || [];
-  // The bot puts its title and a rule before the actual report.
-  const rule = reportLines.findIndex(line => /^_{3,}$/.test(line.trim()));
-  const body = reportLines.slice(rule === 1 ? 2 : 0).join('\n').trim();
   return <Card title={sections.find(([key]) => key === section)[1]}
     actions={<Button size="sm" variant="secondary" icon="refresh" busy={state.loading}
       onClick={() => state.reload()}>Обновить</Button>}>
@@ -30,7 +49,7 @@ function Report({ section, days }) {
         <div tabIndex={0} role="region" aria-label="График с горизонтальной прокруткой">
           <img src={'data:image/png;base64,' + state.data.png} alt={'Динамика показателей бота за ' + days + ' дней'} />
         </div><figcaption>{state.data.legend}</figcaption>
-      </figure> : <pre className="bot-stats-report">{body}</pre>}
+      </figure> : <MetricCards text={state.data.text} section={section} />}
   </Card>;
 }
 
@@ -42,6 +61,8 @@ export default function BotStats() {
   if (!isAdmin) return <PageHead title="Требуются права администратора" />;
   return <div className="stack">
     <PageHead title="Статистика бота" subtitle="Календарные периоды рассчитываются по московскому времени." />
+    <div className="bot-stats-picker"><Select label="Раздел статистики" value={section}
+      onChange={event => setSection(event.target.value)} options={sections.map(([value,label]) => ({ value, label }))} /></div>
     <div className="bot-stats-menu" role="group" aria-label="Раздел статистики">
       {sections.map(([key, label]) => <Button key={key} size="sm"
         variant={key === section ? 'primary' : 'secondary'} aria-pressed={key === section}

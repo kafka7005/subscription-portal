@@ -12,26 +12,61 @@ const sections = [
   ['modules', 'Модули'], ['charts', 'Графики'],
 ];
 
+const highlights = {
+  overview: ['Оплаты за месяц', 'Оплаты за месяц'],
+  clients: ['Всего', 'Всего клиентов'],
+  subs: ['Активных', 'Активные подписки'],
+  payments: ['Месяц', 'Оплаты за месяц'],
+  leads: ['Горячие', 'Горячие лиды'],
+};
+
+function MetricList({ rows, tree = false }) {
+  return <dl className={tree ? 'bot-stats-list bot-stats-tree' : 'bot-stats-list'}>
+    {rows.map((row, index) => row.text !== undefined
+      ? <div className="bot-stats-note" key={index}><dt className="sr-only">Пояснение</dt><dd>{row.text}</dd></div>
+      : <div key={index} className="bot-stats-row"
+          style={tree ? { '--depth': Math.min(3, row.depth) } : undefined}>
+          <dt>{row.label}</dt><dd>{row.value}</dd>
+        </div>)}
+  </dl>;
+}
+
 function MetricCards({ text, section }) {
   const { groups, updated } = parseBotStats(text);
+  const [label, heading] = highlights[section] || [];
+  const sectionName = sections.find(([key]) => key === section)?.[1];
+  const first = groups[0];
+  const main = label && first?.rows.find(row => row.label === label);
+  const secondaryGroups = main ? groups.slice(1) : groups;
   return <div className="bot-stats-groups">
-    {groups.map(({ title, rows }, groupIndex) => {
-      const tariffTree = section === 'tariffs' && title === 'По тарифам';
-      return <section key={groupIndex}>
-        {title && title !== sections.find(([key]) => key === section)?.[1] && <h3>{title}</h3>}
-        <dl className={tariffTree ? 'bot-stats-tree' : 'bot-stats-metrics'}>
-          {rows.map((row, index) => row.text !== undefined
-            ? <div className="bot-stats-note" key={index}><dt className="sr-only">Пояснение</dt><dd>{row.text}</dd></div>
-            : <div key={index} className="bot-stats-metric" data-primary={section === 'overview' && row.label === 'Оплаты за месяц' || undefined}
-                style={tariffTree ? { '--depth': Math.min(3, row.depth) } : undefined}>
-                <dt>{row.label}</dt><dd>{row.value}</dd>
-              </div>)}
-        </dl>
-      </section>;
-    })}
+    {main && <div className="bot-stats-summary">
+      <dl className="bot-stats-key"><dt>{heading}</dt><dd>{main.value}</dd></dl>
+      <div>
+        {first.title && first.title !== sectionName && <h3>{first.title}</h3>}
+        <MetricList rows={first.rows.filter(row => row !== main)} />
+      </div>
+    </div>}
+    {secondaryGroups.length > 0 && <div className="bot-stats-breakdown">
+      {secondaryGroups.map(({ title, rows }, index) => {
+        const tree = section === 'tariffs' && title === 'По тарифам';
+        const groupTitle = title || sectionName;
+        return <section key={index} aria-label={groupTitle} className={tree ? 'bot-stats-section is-tree' : 'bot-stats-section'}>
+          {title && <h3>{title}</h3>}
+          <MetricList rows={rows} tree={tree} />
+        </section>;
+      })}
+    </div>}
     {!groups.length && <p className="muted">Показателей пока нет.</p>}
     {updated && <small className="bot-stats-updated">{updated} МСК</small>}
   </div>;
+}
+
+function ChartLegend({ legend }) {
+  if (!legend?.startsWith('Сверху вниз: ')) return <figcaption>{legend}</figcaption>;
+  return <figcaption>Показатели сверху вниз
+    <ol className="bot-stats-legend">{legend.slice('Сверху вниз: '.length).split(' · ').map((name, i) =>
+      <li key={i}>{name}</li>)}</ol>
+  </figcaption>;
 }
 
 function Report({ section, days }) {
@@ -48,7 +83,7 @@ function Report({ section, days }) {
       : chart ? <figure className="bot-stats-chart">
         <div tabIndex={0} role="region" aria-label="График с горизонтальной прокруткой">
           <img src={'data:image/png;base64,' + state.data.png} alt={'Динамика показателей бота за ' + days + ' дней'} />
-        </div><figcaption>{state.data.legend}</figcaption>
+        </div><ChartLegend legend={state.data.legend} />
       </figure> : <MetricCards text={state.data.text} section={section} />}
   </Card>;
 }

@@ -1,0 +1,6 @@
+.bot-stats-menu { display: flex; flex-wrap: wrap; gap: 8px; }
+.bot-stats-report { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .9rem; line-height: 1.65; }
+.bot-stats-chart { min-width: 0; margin: 0; }
+.bot-stats-chart > div { overflow-x: auto; max-width: 100%; }
+.bot-stats-chart img { display: block; width: auto; min-width: min(100%, 640px); max-width: max(100%, 760px); height: auto; }
+.bot-stats-chart figcaption { margin-top: 12px; color: var(--muted); }

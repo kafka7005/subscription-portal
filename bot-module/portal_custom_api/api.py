@@ -342,6 +342,7 @@ def get_api_routers(version: int) -> list[APIRouter]:
     install_tracking()
     from .web_actions import get_router
     from .admin_audit import get_router as get_admin_audit_router
+    from .bot_stats import get_router as bot_stats_router
     from .giveaways import get_router as giveaways_router
     from .customer_tools import get_router as get_customer_tools_router
     from .admin_operations import get_router as get_admin_operations_router
@@ -352,4 +353,4 @@ def get_api_routers(version: int) -> list[APIRouter]:
     from .support_reminders import get_router as get_support_reminders_router
     from .notification_preferences import install
     install()
-    return [router, giveaways_router('/api/portal'), status_router, get_router(), get_admin_audit_router(), get_customer_tools_router(), get_admin_operations_router(), get_manual_autopay_router(), get_manual_autopay_admin_router(), get_canned_replies_router(), get_support_tools_router(), get_support_reminders_router()]
+    return [router, bot_stats_router('/api/portal'), giveaways_router('/api/portal'), status_router, get_router(), get_admin_audit_router(), get_customer_tools_router(), get_admin_operations_router(), get_manual_autopay_router(), get_manual_autopay_admin_router(), get_canned_replies_router(), get_support_tools_router(), get_support_reminders_router()]

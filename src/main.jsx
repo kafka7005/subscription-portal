@@ -55,6 +55,7 @@ const Ticket = lazy(() => import('./cabinet/Ticket.jsx'));
 const Profile = lazy(() => import('./cabinet/Profile.jsx'));
 const ServiceStatus = lazy(() => import('./cabinet/ServiceStatus.jsx'));
 const AdminLayout = lazy(() => import('./admin/AdminLayout.jsx'));
+const BotStats = lazy(() => import('./admin/BotStats.jsx'));
 const Dashboard = lazy(() => import('./admin/Dashboard.jsx'));
 const Users = lazy(() => import('./admin/Users.jsx'));
 const UserCard = lazy(() => import('./admin/UserCard.jsx'));
@@ -172,6 +173,7 @@ function App() {
 
           <Route path="/admin" element={<RequireStaff><AdminLayout /></RequireStaff>}>
             <Route index element={<Dashboard />} />
+            <Route path="statistics" element={<BotStats />} />
             <Route path="users" element={<Users />} />
             <Route path="users/:userId" element={<UserCard />} />
             <Route path="subscriptions" element={<Subscriptions />} />

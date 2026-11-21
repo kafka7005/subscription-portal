@@ -15,6 +15,7 @@ export function adminNav({ isAdmin, unanswered, partnerOn, payouts, giveawaysOn 
   return [
     { group: 'Обзор' },
     { to: '/admin', end: true, icon: 'chart', label: 'Сводка' },
+    isAdmin && { to: '/admin/statistics', icon: 'chart', label: 'Статистика бота' },
     { group: 'Клиенты' },
     { to: '/admin/users', icon: 'users', label: 'Пользователи' },
     { to: '/admin/subscriptions', icon: 'shield', label: 'Подписки' },

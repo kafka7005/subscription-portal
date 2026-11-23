@@ -58,11 +58,12 @@ function Checkout({ renewId }) {
   const deviceOptions = tariff?.configurable && tariff.device_options?.length ? tariff.device_options : null;
   const preferredCount = params.get('devices') ?? (renewId ? renewKey.data?.device_limit : 1);
   const count = preferredCount == null ? null : Number(preferredCount);
-  const missingLimit = renewId && deviceOptions && !deviceOptions.includes(count);
+  const useSavedConfig = Boolean(renewId && tariff && tariffId === renewKey.data?.tariff_id && !params.has('devices'));
+  const missingLimit = !useSavedConfig && renewId && deviceOptions && !deviceOptions.includes(count);
   const deviceCount = deviceOptions
     ? (deviceOptions.includes(count) ? count : deviceOptions[0])
     : ((renewId && tariffId === renewKey.data?.tariff_id ? renewKey.data?.device_limit : null) ?? tariff?.device_limit ?? 1);
-  const deviceLabel = deviceCount === 0 ? 'Без лимита устройств' : devicesText(deviceCount);
+  const selectedLimit = !useSavedConfig && deviceOptions ? deviceCount : undefined;
 
   function selectParam(name, value) {
     const next = new URLSearchParams(params);
@@ -74,10 +75,10 @@ function Checkout({ renewId }) {
   const ready = Boolean(tariff && !missingLimit && (!renewId || renewKey.data));
   const body = useMemo(() => ready ? ({
     tariff_id: tariffId,
-    selected_device_limit: deviceOptions ? deviceCount : undefined,
+    selected_device_limit: selectedLimit,
     coupon_code: promoApplied || undefined,
     autopay_consent: false,
-  }) : null, [ready, tariffId, deviceCount, promoApplied, deviceOptions]);
+  }) : null, [ready, tariffId, selectedLimit, promoApplied]);
   const debouncedBody = useDebounced(body, 200);
   const path = renewId ? `/keys/${encodeURIComponent(renewId)}/renew` : '/tariffs/purchase';
 
@@ -85,13 +86,17 @@ function Checkout({ renewId }) {
     if (!debouncedBody || debouncedBody !== body) return undefined;
     const controller = new AbortController();
     setPreviewError(null);
-    api.post(path, debouncedBody, { signal: controller.signal, query: { preview: true, force_web: renewId ? true : undefined } })
+    api.post(path, debouncedBody, { signal: controller.signal, query: { preview: true } })
       .then((res) => { if (!controller.signal.aborted) setPreview({ ...res, _coupon: debouncedBody.coupon_code || '', _request: JSON.stringify(debouncedBody), _path: path }); })
       .catch((err) => { if (err.name !== 'AbortError') { setPreview(null); setPreviewError(err); } });
     return () => controller.abort();
   }, [body, debouncedBody, path, renewId, retry, config]);
 
   const stale = !preview || preview._request !== JSON.stringify(body) || preview._path !== path;
+  const quote = !stale && renewId ? preview : null;
+  const baseLimit = useSavedConfig ? quote?.new_device_limit ?? tariff?.device_limit : deviceCount;
+  const finalLimit = quote ? quote.carried_device_limit ?? quote.new_device_limit ?? tariff?.device_limit : baseLimit;
+  const deviceLabel = finalLimit == null ? 'По условиям тарифа' : finalLimit === 0 ? 'Без лимита устройств' : devicesText(finalLimit);
   const toPay = preview?.payment_required ? preview.required_amount_rub : 0;
   const choice = usePaymentChoice(toPay, stale ? null : preview);
   const consent = usePaymentConsents(choice, `${path}:${JSON.stringify(body)}:${preview?.final_price_rub}:${toPay}`);
@@ -116,7 +121,7 @@ function Checkout({ renewId }) {
     try {
       const res = await api.post(path, {
         ...body, ...consent.payload, provider_id: toPay ? choice.provider : undefined, accepted_gross_amount: toPay ? choice.acceptedGross : undefined, ...returnUrls(),
-      }, { query: renewId ? { force_web: true } : undefined });
+      });
       if (res.payment_url) { window.location.assign(res.payment_url); return; }
       if (res.ok === false) throw new Error(res.message || 'Не удалось оформить');
       toast(res.message || (renewId ? 'Подписка продлена' : 'Подписка оформлена'));
@@ -163,11 +168,11 @@ function Checkout({ renewId }) {
           {renewId && !tariff && <p className="muted">Прежний тариф недоступен для выбора. Выберите новый тариф для продления.</p>}
           <PlanPicker tariffs={tariffs} value={tariffId} onChange={id => selectParam('tariff', id)} />
         </Step>
-        {deviceOptions && (missingLimit || deviceOptions.length > 1) && <Step n={++n} title="Устройства" hint={missingLimit ? 'Выберите количество' : deviceLabel} done={!missingLimit}>
-          {missingLimit ? <div>
-            <p className="field-hint">Прежний лимит недоступен. Сколько устройств нужно для продления?</p>
+        {deviceOptions && (missingLimit || deviceOptions.length > 1) && <Step n={++n} title="Устройства" hint={useSavedConfig ? 'Базовый лимит подписки' : missingLimit ? 'Выберите количество' : deviceLabel} done={!missingLimit && baseLimit != null}>
+          {missingLimit || !deviceOptions.includes(baseLimit) ? <div>
+            <p className="field-hint">{useSavedConfig ? 'Бот рассчитает продление с текущими параметрами. Здесь можно выбрать другую базу.' : 'Прежний лимит недоступен. Сколько устройств нужно для продления?'}</p>
             <div className="row" style={{ flexWrap: 'wrap' }}>{deviceOptions.map(n => <Button key={n} variant="secondary" onClick={() => selectParam('devices', n)}>{n === 0 ? 'Без лимита' : devicesText(n)}</Button>)}</div>
-          </div> : <DeviceStepper options={deviceOptions} value={deviceCount} onChange={n => selectParam('devices', n)} />}
+          </div> : <DeviceStepper options={deviceOptions} value={baseLimit} onChange={n => selectParam('devices', n)} />}
         </Step>}
         {ready && couponsOn && <Step n={++n} title="Промокод" hint="Необязательно" done={promoState === 'ok'}
           aside={<button type="button" className="btn btn-link" aria-controls="checkout-promo" aria-expanded={promoOpen} onClick={() => setPromoOpen(!promoOpen)}>{promoOpen ? 'Свернуть' : promoApplied ? 'Показать код' : 'У меня есть код'}</button>}>
@@ -207,6 +212,8 @@ function Checkout({ renewId }) {
         note={`После оплаты вы вернётесь на сайт, а подписка ${renewId ? 'продлится' : 'появится в кабинете'} автоматически.`}>
         {previewError ? <ErrorBox error={previewError} /> : stale ? <div className="skeleton" style={{ height: 64 }} /> : <>
           <Line label={sw ? 'Новый тариф' : 'Стоимость'} value={rub(preview.base_price_rub)} />
+          {quote && finalLimit != null && <Line label="Устройств после продления" value={finalLimit === 0 ? 'Без лимита' : finalLimit} />}
+          {quote?.carried_addons_rub > 0 && <Line label="В том числе перенос докупленных опций" value={rub(quote.carried_addons_rub)} />}
           {preview.discount_rub > 0 && <Line label={`Промокод ${preview.applied_coupon_code || ''}`} value={`−${rub(preview.discount_rub)}`} tone="ok" />}
           {credit > 0 && <Line label="Остаток текущей подписки" value={`−${rub(Math.min(credit, preview.base_price_rub - (preview.discount_rub || 0)))}`} tone="ok" />}
           {sw?.credit_days > 0 && <Line label="Остаток пересчитан в дни" value={`+${days(sw.credit_days)}`} tone="ok" />}

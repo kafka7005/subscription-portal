@@ -13,60 +13,75 @@ import { DeviceStepper, Line, PlanPicker, Step, Summary } from './checkout.jsx';
 
 // Покупка и продление. Цена и скидка — всегда расчёт бота (preview=true ничего не списывает).
 export default function Buy() {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const renewId = params.get('renew');
+  return <Checkout key={renewId || 'purchase'} renewId={renewId} />;
+}
+
+function Checkout({ renewId }) {
+  const [params, setParams] = useSearchParams();
   useDocumentTitle(renewId ? 'Продление' : 'Покупка');
   const navigate = useNavigate();
   const toast = useToast();
   const { config } = useAuth();
   const tariffsState = usePublicTariffs();
   const tariffs = useMemo(() => siteTariffs(tariffsState.data), [tariffsState.data]);
-  const renewKey = useLoad((signal) => (renewId ? api.get(`/keys/${encodeURIComponent(renewId)}/details`, null, { signal }) : null), [renewId]);
+  const renewKey = useLoad(async signal => {
+    if (!renewId) return null;
+    const [details, keys] = await Promise.all([
+      api.get(`/keys/${encodeURIComponent(renewId)}/details`, null, { signal }),
+      api.get('/keys', null, { signal }),
+    ]);
+    const key = keys.find(item => item.client_id === renewId);
+    return { ...details, tariff_id: key?.tariff_id ?? null };
+  }, [renewId]);
 
-  const [tariffId, setTariffId] = useState(() => Number(params.get('tariff')) || null);
-  const [deviceCount, setDeviceCount] = useState(() => Math.max(1, Number(params.get('devices')) || 1));
   const [promo, setPromo] = useState(params.get('promo') || '');
-  const [promoApplied, setPromoApplied] = useState(params.get('promo') || '');
+  const promoApplied = params.get('promo') || '';
   const [promoOpen, setPromoOpen] = useState(Boolean(params.get('promo')));
   const [preview, setPreview] = useState(null);
   const [previewError, setPreviewError] = useState(null);
   const [retry, setRetry] = useState(0);
   const [paying, setPaying] = useState(false);
 
-  const tariff = tariffs.find((t) => t.id === tariffId) || null;
+  const wantedId = params.get('tariff') ?? renewKey.data?.tariff_id;
+  const tariff = tariffs.find(t => t.id === Number(wantedId)) ?? (renewId ? null : tariffs[0]);
+  const tariffId = tariff?.id;
   const deviceOptions = tariff?.configurable && tariff.device_options?.length ? tariff.device_options : null;
+  const preferredCount = params.get('devices') ?? (renewId ? renewKey.data?.device_limit : 1);
+  const count = preferredCount == null ? null : Number(preferredCount);
+  const missingLimit = renewId && deviceOptions && !deviceOptions.includes(count);
+  const deviceCount = deviceOptions
+    ? (deviceOptions.includes(count) ? count : deviceOptions[0])
+    : ((renewId && tariffId === renewKey.data?.tariff_id ? renewKey.data?.device_limit : null) ?? tariff?.device_limit ?? 1);
+  const deviceLabel = deviceCount === 0 ? 'Без лимита устройств' : devicesText(deviceCount);
 
-  useEffect(() => { if (tariffs.length && !tariffs.some((t) => t.id === tariffId)) setTariffId(tariffs[0].id); }, [tariffs, tariffId]);
-  useEffect(() => { if (renewKey.data?.device_limit && !params.get('devices')) setDeviceCount(renewKey.data.device_limit); }, [renewKey.data]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (deviceOptions && !deviceOptions.includes(deviceCount)) setDeviceCount(deviceOptions[0]); }, [tariff]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Выбор держим в адресе: можно обновить страницу или поделиться ссылкой.
-  useEffect(() => {
-    if (!tariffId) return;
+  function selectParam(name, value) {
     const next = new URLSearchParams(params);
-    next.set('tariff', tariffId); next.set('devices', deviceCount);
-    if (promoApplied) next.set('promo', promoApplied); else next.delete('promo');
+    if (value === '') next.delete(name);
+    else next.set(name, String(value));
     setParams(next, { replace: true });
-  }, [tariffId, deviceCount, promoApplied]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
-  const body = useMemo(() => tariffId && ({
+  const ready = Boolean(tariff && !missingLimit && (!renewId || renewKey.data));
+  const body = useMemo(() => ready ? ({
     tariff_id: tariffId,
     selected_device_limit: deviceOptions ? deviceCount : undefined,
     coupon_code: promoApplied || undefined,
     autopay_consent: false,
-  }), [tariffId, deviceCount, promoApplied, deviceOptions]);
+  }) : null, [ready, tariffId, deviceCount, promoApplied, deviceOptions]);
   const debouncedBody = useDebounced(body, 200);
   const path = renewId ? `/keys/${encodeURIComponent(renewId)}/renew` : '/tariffs/purchase';
 
   useEffect(() => {
-    if (!debouncedBody) return undefined;
+    if (!debouncedBody || debouncedBody !== body) return undefined;
     const controller = new AbortController();
     setPreviewError(null);
     api.post(path, debouncedBody, { signal: controller.signal, query: { preview: true, force_web: renewId ? true : undefined } })
       .then((res) => { if (!controller.signal.aborted) setPreview({ ...res, _coupon: debouncedBody.coupon_code || '', _request: JSON.stringify(debouncedBody), _path: path }); })
       .catch((err) => { if (err.name !== 'AbortError') { setPreview(null); setPreviewError(err); } });
     return () => controller.abort();
-  }, [debouncedBody, path, renewId, retry, config]);
+  }, [body, debouncedBody, path, renewId, retry, config]);
 
   const stale = !preview || preview._request !== JSON.stringify(body) || preview._path !== path;
   const toPay = preview?.payment_required ? preview.required_amount_rub : 0;
@@ -112,6 +127,8 @@ export default function Buy() {
   </>;
   if (tariffsState.error) return <ErrorBox error={tariffsState.error} />;
   if (!tariffsState.data || (renewId && renewKey.loading)) return <Spinner />;
+  if (renewKey.error) return <ErrorBox error={renewKey.error} onRetry={renewKey.reload} />;
+  if (!tariffs.length) return <PageHead back="/cabinet" title="Нет доступных тарифов" />;
   const rk = renewKey.data;
 
   const button = <Button size="lg" className="btn-block pay-btn" busy={paying} disabled={!consent.ready || !preview || stale || previewError || (toPay > 0 && !choice.provider)} onClick={pay} iconRight="arrow">
@@ -122,7 +139,6 @@ export default function Buy() {
   return <div className="checkout">
     <PageHead back="/cabinet" title={renewId ? 'Продление подписки' : 'Новая подписка'}
       subtitle={renewId ? 'Выберите параметры и проверьте новый срок перед оплатой.' : 'Трафик без ограничений и все локации. Подписка появится сразу после оплаты.'} />
-    {renewKey.error && <ErrorBox error={renewKey.error} />}
 
     {rk && <div className="renew-strip card">
       <span className="sub-card-icon"><Icon name="shield" size={20} /></span>
@@ -133,21 +149,25 @@ export default function Buy() {
     <div className="checkout-grid">
       <div className="stack" style={{ gap: 16 }}>
         <Step n={++n} title="Срок" hint="Чем дольше — тем дешевле месяц" done={Boolean(tariff)}>
-          <PlanPicker tariffs={tariffs} value={tariffId} onChange={setTariffId} />
+          {renewId && !tariff && <p className="muted">Прежний тариф недоступен для выбора. Выберите новый тариф для продления.</p>}
+          <PlanPicker tariffs={tariffs} value={tariffId} onChange={id => selectParam('tariff', id)} />
         </Step>
-        {deviceOptions && deviceOptions.length > 1 && <Step n={++n} title="Устройства" hint={devicesText(deviceCount)} done>
-          <DeviceStepper options={deviceOptions} value={deviceCount} onChange={setDeviceCount} />
+        {deviceOptions && (missingLimit || deviceOptions.length > 1) && <Step n={++n} title="Устройства" hint={missingLimit ? 'Выберите количество' : deviceLabel} done={!missingLimit}>
+          {missingLimit ? <div>
+            <p className="field-hint">Прежний лимит недоступен. Сколько устройств нужно для продления?</p>
+            <div className="row" style={{ flexWrap: 'wrap' }}>{deviceOptions.map(n => <Button key={n} variant="secondary" onClick={() => selectParam('devices', n)}>{n === 0 ? 'Без лимита' : devicesText(n)}</Button>)}</div>
+          </div> : <DeviceStepper options={deviceOptions} value={deviceCount} onChange={n => selectParam('devices', n)} />}
         </Step>}
-        {couponsOn && <Step n={++n} title="Промокод" hint="Необязательно" done={promoState === 'ok'}
+        {ready && couponsOn && <Step n={++n} title="Промокод" hint="Необязательно" done={promoState === 'ok'}
           aside={<button type="button" className="btn btn-link" aria-controls="checkout-promo" aria-expanded={promoOpen} onClick={() => setPromoOpen(!promoOpen)}>{promoOpen ? 'Свернуть' : promoApplied ? 'Показать код' : 'У меня есть код'}</button>}>
           <div id="checkout-promo" className="expand-track" data-expanded={promoOpen} inert={!promoOpen}>
             <div className="expand-clip"><div className="checkout-promo-fields">
-            <form className="inline-form" onSubmit={(e) => { e.preventDefault(); setPromoApplied(promo.trim().toUpperCase()); }}>
+            <form className="inline-form" onSubmit={(e) => { e.preventDefault(); selectParam('promo', promo.trim().toUpperCase()); }}>
               <Input aria-label="Промокод" placeholder="Введите промокод" value={promo} autoComplete="off" spellCheck="false"
                 readOnly={Boolean(promoApplied)} className={promoState ? `promo-${promoState}` : ''}
                 onChange={(e) => setPromo(e.target.value.toUpperCase().replace(/\s/g, ''))} />
               {promoApplied
-                ? <Button variant="secondary" onClick={() => { setPromo(''); setPromoApplied(''); }}>Убрать</Button>
+                ? <Button variant="secondary" onClick={() => { setPromo(''); selectParam('promo', ''); }}>Убрать</Button>
                 : <Button type="submit" variant="secondary" disabled={!promo.trim()}>Применить</Button>}
             </form>
             <div className="expand-track" data-expanded={Boolean(promoState)}><div className="expand-clip"><p className={`promo-status promo-status-${promoState}`} role="status">
@@ -158,12 +178,12 @@ export default function Buy() {
             </div></div>
           </div>
         </Step>}
-        {toPay > 0 && <Step n={++n} title="Способ оплаты" hint={choice.fee ? `комиссия кассы ${rub(choice.fee)}` : 'без комиссии'} done={Boolean(choice.provider)}>
+        {ready && toPay > 0 && <Step n={++n} title="Способ оплаты" hint={choice.fee ? `комиссия кассы ${rub(choice.fee)}` : 'без комиссии'} done={Boolean(choice.provider)}>
           <PaymentPicker choice={choice} />
         </Step>}
       </div>
 
-      <Summary eyebrow={sw ? 'Смена тарифа' : renewId ? 'Продление' : 'Service Portal'}
+      {ready && <Summary eyebrow={sw ? 'Смена тарифа' : renewId ? 'Продление' : 'Service Portal'}
         consents={<PaymentConsents consent={consent} />}
         extra={sw && <div className="switch-note">
           <Icon name="refresh" size={18} />
@@ -171,7 +191,7 @@ export default function Buy() {
             {' '}{renewal?.note}
             {externalMayKeepExpiry && ' При оплате через некоторые кассы бот сохраняет прежнюю дату окончания, если она позже.'}</p>
         </div>} title={tariff ? days(tariff.duration_days) : '—'}
-        features={[devicesText(deviceCount), 'Трафик без ограничений', 'Все локации и протоколы']}
+        features={[deviceLabel, 'Трафик без ограничений', 'Все локации и протоколы']}
         total={previewError || stale ? null : total} button={button}
         note={`После оплаты вы вернётесь на сайт, а подписка ${renewId ? 'продлится' : 'появится в кабинете'} автоматически.`}>
         {previewError ? <ErrorBox error={previewError} /> : stale ? <div className="skeleton" style={{ height: 64 }} /> : <>
@@ -183,7 +203,7 @@ export default function Buy() {
           {netCost - toPay > 0 && <Line label="С баланса" value={`−${rub(netCost - toPay)}`} />}
           {choice.fee > 0 && toPay > 0 && <Line label="Комиссия кассы" value={rub(choice.fee)} />}
         </>}
-      </Summary>
+      </Summary>}
     </div>
   </div>;
 }

@@ -1,3 +1,4 @@
+import { renewalSummary } from '../lib/renewalSummary.js';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
@@ -81,11 +82,10 @@ export default function Buy() {
   const credit = sw ? Number(sw.credit_to_balance_rub || 0) : 0;
   const refund = sw ? Number(sw.refund_to_balance_rub || 0) : 0;
   const netCost = preview ? Math.max(0, Number(preview.final_price_rub || 0)) : 0;
-  const newExpiry = renewKey.data && tariff
-    ? (sw?.keeps_period ? Number(renewKey.data.expiry_time)
-      : sw ? Date.now() + (tariff.duration_days + Number(sw.credit_days || 0)) * 86400000
-        : Math.max(Date.now(), Number(renewKey.data.expiry_time || 0)) + tariff.duration_days * 86400000)
-    : null;
+  const renewal = renewId && renewKey.data && tariff && !stale
+    ? renewalSummary(preview, tariff.duration_days, renewKey.data.expiry_time) : null;
+  const newExpiry = renewal?.end;
+  const externalMayKeepExpiry = sw && toPay > 0 && newExpiry < Number(renewKey.data?.expiry_time);
 
   const pay = async () => {
     if (!consent.ready || stale || paying) return;
@@ -121,13 +121,13 @@ export default function Buy() {
   let n = 0;
   return <div className="checkout">
     <PageHead back="/cabinet" title={renewId ? 'Продление подписки' : 'Новая подписка'}
-      subtitle={renewId ? 'Новый срок прибавится к текущему — ни одного дня не потеряется.' : 'Трафик без ограничений и все локации. Подписка появится сразу после оплаты.'} />
+      subtitle={renewId ? 'Выберите параметры и проверьте новый срок перед оплатой.' : 'Трафик без ограничений и все локации. Подписка появится сразу после оплаты.'} />
     {renewKey.error && <ErrorBox error={renewKey.error} />}
 
     {rk && <div className="renew-strip card">
       <span className="sub-card-icon"><Icon name="shield" size={20} /></span>
       <div className="cell-main"><strong>{rk.alias || cleanName(rk.tariff_name) || 'Подписка'}</strong><span>сейчас до {date(rk.expiry_time)}</span></div>
-      {newExpiry && <div className="renew-arrow"><Icon name="arrow" size={16} /><div className="cell-main"><strong className="tone-ok">до {date(newExpiry)}</strong><span>после продления</span></div></div>}
+      {newExpiry && <div className="renew-arrow"><Icon name="arrow" size={16} /><div className="cell-main"><strong className="tone-ok">до {date(newExpiry)}</strong><span>по расчёту бота</span></div></div>}
     </div>}
 
     <div className="checkout-grid">
@@ -168,13 +168,13 @@ export default function Buy() {
         extra={sw && <div className="switch-note">
           <Icon name="refresh" size={18} />
           <p>Параметры подписки меняются{renewKey.data?.device_limit && deviceOptions && renewKey.data.device_limit !== deviceCount ? ` (${devicesText(renewKey.data.device_limit)} → ${deviceCount})` : ''}.
-            Неиспользованный остаток текущей подписки пересчитаем{credit > 0 ? ` (${rub(credit)})` : ''}: он пойдёт в оплату нового тарифа{refund > 0 ? `, а ${rub(refund)} вернутся на баланс` : ''}.
-            {sw.keeps_period ? ' Срок окончания не изменится.' : ' Новый срок начнётся сегодня.'}</p>
+            {' '}{renewal?.note}
+            {externalMayKeepExpiry && ' При оплате через некоторые кассы бот сохраняет прежнюю дату окончания, если она позже.'}</p>
         </div>} title={tariff ? days(tariff.duration_days) : '—'}
         features={[devicesText(deviceCount), 'Трафик без ограничений', 'Все локации и протоколы']}
-        total={previewError ? null : total} button={button}
+        total={previewError || stale ? null : total} button={button}
         note={`После оплаты вы вернётесь на сайт, а подписка ${renewId ? 'продлится' : 'появится в кабинете'} автоматически.`}>
-        {previewError ? <ErrorBox error={previewError} /> : !preview ? <div className="skeleton" style={{ height: 64 }} /> : <>
+        {previewError ? <ErrorBox error={previewError} /> : stale ? <div className="skeleton" style={{ height: 64 }} /> : <>
           <Line label={sw ? 'Новый тариф' : 'Стоимость'} value={rub(preview.base_price_rub)} />
           {preview.discount_rub > 0 && <Line label={`Промокод ${preview.applied_coupon_code || ''}`} value={`−${rub(preview.discount_rub)}`} tone="ok" />}
           {credit > 0 && <Line label="Остаток текущей подписки" value={`−${rub(Math.min(credit, preview.base_price_rub - (preview.discount_rub || 0)))}`} tone="ok" />}

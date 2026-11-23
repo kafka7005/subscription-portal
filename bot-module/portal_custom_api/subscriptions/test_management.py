@@ -81,11 +81,25 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
     async def test_remna_rotation(self):
         self.start(patch('database.servers.get_servers',AsyncMock(return_value={'cluster':[{'panel_type':'remnawave','api_url':'fixture'}]})))
         panel=AsyncMock()
-        panel.revoke_user_subscription.return_value={'subscriptionUrl':'fixture-new'}
+        panel.bind_subscription = MagicMock()
+        panel.get_user_by_uuid.side_effect = [
+            {'uuid':'fixture','username':'fixture','subscriptionUrl':'old'},
+            {'uuid':'new-panel-id','username':'fixture','subscriptionUrl':'fixture-new'},
+            {'uuid':'other','username':'stranger','subscriptionUrl':'fixture-next'},
+            {'uuid':'other','username':'fixture','subscriptionUrl':'outdated'},
+        ]
+        panel.revoke_user_subscription.side_effect = [{'subscriptionUrl':'fixture-new'},{'subscriptionUrl':'fixture-next'}]
         self.start(patch('panels.remnawave.RemnawaveAPI',return_value=panel))
         self.assertEqual(await rotation.rotate_link(self.session,self.key),'fixture-new')
         panel.revoke_user_subscription.assert_awaited_once_with('fixture',username='fixture')
-        panel.aclose.assert_awaited_once()
+        self.assertEqual(await rotation.rotate_link(self.session,self.key),'fixture-next')
+        panel.bind_subscription.assert_called_with('fixture','fixture','fixture-new')
+        self.assertEqual(panel.revoke_user_subscription.await_args.args, ('new-panel-id',))
+        for _ in range(2):
+            with self.assertRaises(HTTPException):
+                await rotation.rotate_link(self.session,self.key)
+        self.assertEqual(panel.revoke_user_subscription.await_count,2)
+        self.assertEqual(panel.aclose.await_count,4)
         self.assertEqual(self.key.key,self.key.remnawave_link)
 
     async def test_rebuild_target(self):

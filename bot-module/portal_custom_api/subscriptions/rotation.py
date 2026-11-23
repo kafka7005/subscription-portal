@@ -25,7 +25,16 @@ async def rotate_link(session, key):
         try:
             if not REMNAWAVE_TOKEN_LOGIN_ENABLED:
                 await api.login(REMNAWAVE_LOGIN, REMNAWAVE_PASSWORD)
-            result = await api.revoke_user_subscription(key.client_id, username=old_email)
+            saved_link = key.remnawave_link or key.key
+            if saved_link:
+                api.bind_subscription(key.client_id, old_email, saved_link)
+            profile = await api.get_user_by_uuid(key.client_id, username=old_email)
+            panel_id = (profile or {}).get('uuid')
+            if not panel_id or profile.get('username') != old_email:
+                raise HTTPException(409, 'Не удалось подтвердить владельца подписки в панели.')
+            if str(panel_id) != str(key.client_id) and (not saved_link or profile.get('subscriptionUrl') != saved_link):
+                raise HTTPException(409, 'Ссылка в панели отличается от сохранённой. Проверьте подписку.')
+            result = await api.revoke_user_subscription(panel_id, username=old_email)
         finally:
             await api.aclose()
         link = (result or {}).get('subscriptionUrl')

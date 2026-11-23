@@ -110,8 +110,17 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
         self.start(patch.dict(sys.modules,{'bot':SimpleNamespace(bot=telegram)}))
         chat=self.start(patch('database.access.resolution.chat_id_for_user',AsyncMock(return_value=111)))
         self.assertTrue(await rotation.notify_owner(self.session,10,'/subscription/a?x=1&y=2'))
-        self.assertEqual(telegram.send_message.await_args.kwargs['chat_id'],111)
-        self.assertIn('x=1&amp;y=2',telegram.send_message.await_args.kwargs['text'])
+        sent = telegram.send_message.await_args.kwargs
+        self.assertEqual(sent['chat_id'], 111)
+        self.assertEqual(sent['parse_mode'], 'HTML')
+        self.assertEqual(sent['text'], (
+            '🔄 <b>Ваша подписка была перевыпущена</b>\n\n'
+            '🔗 <b>Новая ссылка подписки:</b>\n'
+            '<code>/subscription/a?x=1&amp;y=2</code>\n\n'
+            '<i>Старая ссылка больше не работает.</i>'
+        ))
+        buttons = [[(b.text, b.callback_data) for b in row] for row in sent['reply_markup'].inline_keyboard]
+        self.assertEqual(buttons, [[('📱 Мои подписки', 'view_keys')], [('👤 Личный кабинет', 'profile')]])
         chat.return_value=None
         self.assertFalse(await rotation.notify_owner(self.session,10,'x'))
         self.assertEqual(telegram.send_message.await_count,1)

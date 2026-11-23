@@ -78,11 +78,16 @@ async def notify_owner(session, user_id, link):
         if chat is None:
             return False
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text='Мои подписки', callback_data='view_keys')],
-            [InlineKeyboardButton(text='Личный кабинет', callback_data='profile')],
+            [InlineKeyboardButton(text='📱 Мои подписки', callback_data='view_keys')],
+            [InlineKeyboardButton(text='👤 Личный кабинет', callback_data='profile')],
         ])
-        await bot.send_message(chat_id=chat, parse_mode='HTML', reply_markup=keyboard,
-            text=f'🔄 <b>Ссылка подписки изменена</b>\n\n<code>{escape(link)}</code>\n\nДобавьте новую ссылку в приложение.')
+        # Match the notification in SoloBot's admin key lifecycle handler.
+        text = (
+            "🔄 <b>Ваша подписка была перевыпущена</b>\n\n"
+            f"🔗 <b>Новая ссылка подписки:</b>\n<code>{escape(link)}</code>\n\n"
+            "<i>Старая ссылка больше не работает.</i>"
+        )
+        await bot.send_message(chat_id=chat, parse_mode='HTML', reply_markup=keyboard, text=text)
         return True
     except Exception:
         return False

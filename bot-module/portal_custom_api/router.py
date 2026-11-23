@@ -3,15 +3,15 @@ from aiogram import Router
 
 router = Router(name="portal_custom_api_module")
 async def on_startup(**kwargs):
-    from .single_subscription import install_completion_guard
+    from .subscriptions.single_subscription import install_completion_guard
     install_completion_guard()
-    from .broadcast_status import install_tracking
+    from .campaigns.broadcast_status import install_tracking
     install_tracking()
-    from .support_reminders import start_worker
+    from .support.support_reminders import start_worker
     await start_worker(**kwargs)
 
 async def on_shutdown(**kwargs):
-    from .support_reminders import stop_worker
+    from .support.support_reminders import stop_worker
     await stop_worker(**kwargs)
 
 router.startup.register(on_startup)

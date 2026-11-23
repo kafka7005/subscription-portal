@@ -87,7 +87,7 @@ def get_router(prefix, version):
     if version != 2:
         return router
     from utils.modules_manager import manager
-    if not manager.is_available(__package__.split('.')[-1]):
+    if not manager.is_available(__package__.split('.')[-2]):
         return router
 
     # Native request/response models, billing, consent and validation stay in use.

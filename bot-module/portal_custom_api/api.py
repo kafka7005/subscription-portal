@@ -31,7 +31,7 @@ from core.redis_cache import _get_redis, cache_delete, cache_key
 from database import get_keys, identities as idb, identity_sessions as idsess
 from database.models import IdentitySession
 from logger import logger
-from .pkce_store import consume_code
+from .accounts.pkce_store import consume_code
 
 
 BRAND_NAME = os.environ.get("APP_BRAND_NAME", "Subscription Portal")
@@ -338,21 +338,22 @@ def get_api_routers(version: int) -> list[APIRouter]:
         await svc.notify_agents_new_ticket(session, ticket=ticket)
         return {"ok": True, "ticket_id": str(ticket.id)}
 
-    from .broadcast_status import status_router, install_tracking
+    from .campaigns.broadcast_status import status_router, install_tracking
     install_tracking()
-    from .web_actions import get_router
-    from .admin_audit import get_router as get_admin_audit_router
-    from .single_subscription import get_router as subscription_router, install_completion_guard
+    from .accounts.web_actions import get_router
+    from .staff.admin_audit import get_router as get_admin_audit_router
+    from .subscriptions.single_subscription import get_router as subscription_router, install_completion_guard
     install_completion_guard()
-    from .bot_stats import get_router as bot_stats_router
-    from .giveaways import get_router as giveaways_router
-    from .customer_tools import get_router as get_customer_tools_router
-    from .admin_operations import get_router as get_admin_operations_router
-    from .manual_autopay import get_router as get_manual_autopay_router
-    from .manual_autopay_admin import get_router as get_manual_autopay_admin_router
-    from .canned_replies import get_router as get_canned_replies_router
-    from .support_tools import get_router as get_support_tools_router
-    from .support_reminders import get_router as get_support_reminders_router
-    from .notification_preferences import install
+    from .staff.bot_stats import get_router as bot_stats_router
+    from .campaigns.giveaways import get_router as giveaways_router
+    from .accounts.customer_tools import get_router as get_customer_tools_router
+    from .staff.admin_operations import get_router as get_admin_operations_router
+    from .payments.manual_autopay import get_router as get_manual_autopay_router
+    from .payments.manual_autopay_admin import get_router as get_manual_autopay_admin_router
+    from .support.canned_replies import get_router as get_canned_replies_router
+    from .support.support_tools import get_router as get_support_tools_router
+    from .support.support_reminders import get_router as get_support_reminders_router
+    from .accounts.notification_preferences import install
     install()
-    return [router, subscription_router('/api/portal', version), bot_stats_router('/api/portal'), giveaways_router('/api/portal'), status_router, get_router(), get_admin_audit_router(), get_customer_tools_router(), get_admin_operations_router(), get_manual_autopay_router(), get_manual_autopay_admin_router(), get_canned_replies_router(), get_support_tools_router(), get_support_reminders_router()]
+    from .subscriptions.management import get_router as management_router
+    return [router, management_router('/api/portal'), subscription_router('/api/portal', version), bot_stats_router('/api/portal'), giveaways_router('/api/portal'), status_router, get_router(), get_admin_audit_router(), get_customer_tools_router(), get_admin_operations_router(), get_manual_autopay_router(), get_manual_autopay_admin_router(), get_canned_replies_router(), get_support_tools_router(), get_support_reminders_router()]

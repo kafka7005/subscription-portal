@@ -1,3 +1,4 @@
+import SubscriptionManagement from './SubscriptionManagement.jsx';
 import ConfirmedOperation from './ConfirmedOperation.jsx';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -35,29 +36,6 @@ function ExpiryModal({ open, onClose, sub, onDone }) {
         <Input label="Дней" type="number" min="1" value={daysValue} onChange={(e) => setDaysValue(e.target.value)} />
         <div className="chips">{[1, 3, 7, 30, 90].map((n) => <button key={n} type="button" className="chip" onClick={() => setDaysValue(String(n))}>{n} дн</button>)}</div>
       </>}
-  </Modal>;
-}
-
-function LimitsModal({ open, onClose, sub, onDone }) {
-  const toast = useToast();
-  const [devices, setDevices] = useState('');
-  const [traffic, setTraffic] = useState('');
-  const [busy, setBusy] = useState(false);
-  useEffect(() => { if (open) { setDevices(sub.device_limit ?? ''); setTraffic(sub.traffic_limit ?? ''); } }, [open, sub]);
-  const submit = async () => {
-    setBusy(true);
-    try {
-      const body = {};
-      if (String(devices) !== String(sub.device_limit ?? '')) body.device_limit = devices === '' ? 0 : Number(devices);
-      if (String(traffic) !== String(sub.traffic_limit ?? '')) body.traffic_limit = traffic === '' ? 0 : Number(traffic);
-      if (!Object.keys(body).length) { onClose(); return; }
-      await api.post(`/admin/subscriptions/${enc(sub.client_id)}/set-limits`, body);
-      toast('Лимиты обновлены'); onDone(); onClose();
-    } catch (err) { toast.error(err); } finally { setBusy(false); }
-  };
-  return <Modal open={open} onClose={onClose} title="Лимиты" size="sm" footer={<Button busy={busy} onClick={submit}>Сохранить</Button>}>
-    <Input label="Устройств" type="number" min="0" value={devices} onChange={(e) => setDevices(e.target.value)} hint="0 — без ограничения" />
-    <Input label="Трафик, ГБ" type="number" min="0" value={traffic} onChange={(e) => setTraffic(e.target.value)} hint="0 — без ограничения" />
   </Modal>;
 }
 
@@ -176,7 +154,7 @@ export default function SubscriptionAdmin() {
             {s.is_frozen
               ? <button type="button" onClick={() => act('unfreeze')}><span>Разморозить</span></button>
               : <button type="button" onClick={() => act('freeze', { title: 'Заморозить подписку?', text: 'Клиент не сможет подключаться, пока подписка заморожена.', confirmText: 'Заморозить' })}><span>Заморозить</span></button>}
-            <button type="button" onClick={() => act('reissue', { title: 'Перевыпустить подписку?', text: 'Будет создана новая ссылка, старая перестанет работать. Клиенту нужно будет добавить её заново.', confirmText: 'Перевыпустить' })}><span>Перевыпустить ссылку</span></button>
+            <button type="button" onClick={() => setModal('reissue')}><span>Перевыпуск подписки</span></button>
           </div>
         </Card>
         <Card title="Опасная зона" className="danger-zone">
@@ -189,7 +167,7 @@ export default function SubscriptionAdmin() {
     </div>
 
     <ExpiryModal open={modal === 'expiry'} onClose={() => setModal(null)} sub={s} onDone={reload} />
-    <LimitsModal open={modal === 'limits'} onClose={() => setModal(null)} sub={s} onDone={reload} />
+    {(modal === 'limits' || modal === 'reissue') && <SubscriptionManagement key={clientId+modal} mode={modal} sub={s} onClose={() => setModal(null)} onDone={reload} />}
     <TariffModal open={modal === 'tariff'} onClose={() => setModal(null)} sub={s} onDone={reload} />
     {modal === 'location' && <LocationModal open onClose={() => setModal(null)} sub={s} onDone={reload} />}
   </>;

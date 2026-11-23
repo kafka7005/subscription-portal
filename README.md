@@ -117,7 +117,10 @@ sudo test -d "$BOT_DIR/modules" && sudo systemctl status "$BOT_UNIT" --no-pager
     sudo cp -a "$target" "$backup/"
     echo "Копия модуля: $backup/portal_custom_api"
   fi
-  sudo cp -R bot-module/portal_custom_api "$BOT_DIR/modules/"
+  stage=$(sudo mktemp -d "$BOT_DIR/.module-update.XXXXXX")
+  sudo cp -a bot-module/portal_custom_api "$stage/"
+  if sudo test -d "$target"; then sudo mv "$target" "$stage/previous"; fi
+  sudo mv "$stage/portal_custom_api" "$target"
   sudo systemctl restart "$BOT_UNIT"
   sudo systemctl is-active "$BOT_UNIT"
 )
@@ -270,6 +273,6 @@ npm run dev
 
 Вы можете установить эту версию сайта, изменить её под свой сервис и использовать с собственной лицензированной установкой бота. Для сторонних библиотек, шрифтов и флагов действуют их исходные лицензии.
 
-Тесты интерфейсной логики запускаются командой `npm test`. Для тестов модуля в отдельном Python-окружении установите FastAPI, Pydantic 2 и `SQLAlchemy[asyncio]`. Запускайте каждый файл `bot-module/portal_custom_api/test_*.py` отдельным процессом. Тесты используют подмены сервисов оплаты и хранения.
+Тесты интерфейсной логики запускаются командой `npm test`. Для тестов модуля в отдельном Python-окружении установите FastAPI, Pydantic 2 и `SQLAlchemy[asyncio]`. Запускайте каждый файл `bot-module/portal_custom_api/*/test_*.py` отдельным процессом. Тесты используют подмены сервисов оплаты и хранения.
 
 Для обновления проверяйте `npm audit` и отдельно `npm audit --omit=dev`. Сервер разработки предназначен для локального использования. В production раздавайте собранный каталог `dist`. Клиентские проверки дополняют серверные разрешения. Для приёмки используйте собственный тестовый экземпляр бота с отдельными аккаунтами клиента, сотрудника и администратора.

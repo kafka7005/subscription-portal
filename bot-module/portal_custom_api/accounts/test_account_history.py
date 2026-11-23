@@ -66,7 +66,7 @@ def stub(name, **attrs):
 
 
 def route(file, suffix):
-    spec = importlib.util.spec_from_file_location(file, Path(__file__).with_name(file + ".py"))
+    spec = importlib.util.spec_from_file_location(file, (Path(__file__).parent.parent / ("support" if file == "support_tools" else "accounts") / (file + ".py")))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return next(r for r in mod.get_router().routes if r.path.endswith(suffix))

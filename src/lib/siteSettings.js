@@ -14,6 +14,7 @@ export const docSlug = (slug) => `kz-doc-${slug}`;
 const BLOCK_TYPE = 'kz-data';
 
 export const DEFAULT_SITE = {
+  landing_tariff_group: '',
   maintenance: { enabled: false, title: 'Ведём технические работы', text: 'Сайт скоро снова заработает. Подписки и VPN работают как обычно.' },
   banner: { enabled: false, text: '', tone: 'info', link_text: '', link_url: '' },
   service_notice: { enabled: false, title: '', text: '', page_enabled: true },
@@ -54,6 +55,7 @@ export async function writeKzPage(slug, data, title) {
 
 export function mergeSite(data) {
   return {
+    landing_tariff_group: typeof data?.landing_tariff_group === 'string' ? data.landing_tariff_group.trim() : '',
     maintenance: { ...DEFAULT_SITE.maintenance, ...(data?.maintenance || {}) },
     banner: { ...DEFAULT_SITE.banner, ...(data?.banner || {}) },
     service_notice: { ...DEFAULT_SITE.service_notice, ...(data?.service_notice || {}) },

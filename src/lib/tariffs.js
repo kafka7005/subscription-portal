@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { api } from './api.js';
 
-// Публичные тарифы бота. На сайте показываем группу, указанную при сборке
-// (VITE_TARIFF_GROUP, по умолчанию basic): это ровно 30/90/180/360 дней из макета.
+import { SITE_SLUG, readKzPage } from './siteSettings.js';
 export const TARIFF_GROUP = import.meta.env.VITE_TARIFF_GROUP || 'basic';
+
+export async function loadLandingGroup(signal) {
+  const site = await readKzPage(SITE_SLUG, signal);
+  return site?.landing_tariff_group?.trim() || TARIFF_GROUP;
+}
 
 let cache = null;
 export function loadPublicTariffs({ refresh = false } = {}) {
@@ -17,9 +21,9 @@ export function cleanName(name) {
   return String(name || '').replace(/[\p{Extended_Pictographic}️‍]/gu, '').trim();
 }
 
-export function siteTariffs(all) {
+export function siteTariffs(all, group = TARIFF_GROUP) {
   return (all || [])
-    .filter((t) => t.group_code === TARIFF_GROUP && t.price_rub > 0)
+    .filter((t) => t.group_code === group && t.price_rub > 0)
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.duration_days - b.duration_days);
 }
 

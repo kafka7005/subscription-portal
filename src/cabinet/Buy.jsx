@@ -5,7 +5,7 @@ import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { useDebounced, useDocumentTitle, useLoad } from '../lib/hooks.js';
 import { date, days, devices as devicesText, rub } from '../lib/format.js';
-import { cleanName, siteTariffs, usePublicTariffs } from '../lib/tariffs.js';
+import { cleanName, loadLandingGroup, siteTariffs, usePublicTariffs } from '../lib/tariffs.js';
 import { Button, ErrorBox, Icon, Input, PageHead, Spinner, useToast } from '../ui/index.jsx';
 import { PaymentPicker, returnUrls, usePaymentChoice } from './PaymentPicker.jsx';
 import PaymentConsents, { usePaymentConsents } from './PaymentConsents.jsx';
@@ -25,7 +25,8 @@ function Checkout({ renewId }) {
   const toast = useToast();
   const { config } = useAuth();
   const tariffsState = usePublicTariffs();
-  const tariffs = useMemo(() => siteTariffs(tariffsState.data), [tariffsState.data]);
+  const fromLanding = !renewId && params.get('source') === 'landing';
+  const landing = useLoad(signal => fromLanding ? loadLandingGroup(signal) : null, [fromLanding]);
   const renewKey = useLoad(async signal => {
     if (!renewId) return null;
     const [details, keys] = await Promise.all([
@@ -36,6 +37,13 @@ function Checkout({ renewId }) {
     return { ...details, tariff_id: key?.tariff_id ?? null };
   }, [renewId]);
 
+  const currentPlan = tariffsState.data?.find(t => t.id === renewKey.data?.tariff_id);
+  const renewalGroup = currentPlan?.group_code;
+  const group = fromLanding ? landing.data : renewalGroup && currentPlan.price_rub > 0
+    && !['trial', 'discounts', 'discounts_max', 'cold_discounts', 'cold_discounts_max', 'gifts'].includes(renewalGroup)
+    ? renewalGroup : undefined;
+  const tariffs = useMemo(() => fromLanding && !group ? [] : siteTariffs(tariffsState.data, group), [tariffsState.data, fromLanding, group]);
+
   const [promo, setPromo] = useState(params.get('promo') || '');
   const promoApplied = params.get('promo') || '';
   const [promoOpen, setPromoOpen] = useState(Boolean(params.get('promo')));
@@ -45,7 +53,7 @@ function Checkout({ renewId }) {
   const [paying, setPaying] = useState(false);
 
   const wantedId = params.get('tariff') ?? renewKey.data?.tariff_id;
-  const tariff = tariffs.find(t => t.id === Number(wantedId)) ?? (renewId ? null : tariffs[0]);
+  const tariff = tariffs.find(t => t.id === Number(wantedId)) ?? (renewId || fromLanding ? null : tariffs[0]);
   const tariffId = tariff?.id;
   const deviceOptions = tariff?.configurable && tariff.device_options?.length ? tariff.device_options : null;
   const preferredCount = params.get('devices') ?? (renewId ? renewKey.data?.device_limit : 1);
@@ -128,6 +136,8 @@ function Checkout({ renewId }) {
   if (tariffsState.error) return <ErrorBox error={tariffsState.error} />;
   if (!tariffsState.data || (renewId && renewKey.loading)) return <Spinner />;
   if (renewKey.error) return <ErrorBox error={renewKey.error} onRetry={renewKey.reload} />;
+  if (fromLanding && landing.loading) return <Spinner />;
+  if (fromLanding && landing.error) return <ErrorBox error={landing.error} onRetry={landing.reload} />;
   if (!tariffs.length) return <PageHead back="/cabinet" title="Нет доступных тарифов" />;
   const rk = renewKey.data;
 
@@ -149,6 +159,7 @@ function Checkout({ renewId }) {
     <div className="checkout-grid">
       <div className="stack" style={{ gap: 16 }}>
         <Step n={++n} title="Срок" hint="Чем дольше — тем дешевле месяц" done={Boolean(tariff)}>
+          {fromLanding && !tariff && <p className="muted">Выбранный на лендинге тариф больше недоступен. Выберите другой.</p>}
           {renewId && !tariff && <p className="muted">Прежний тариф недоступен для выбора. Выберите новый тариф для продления.</p>}
           <PlanPicker tariffs={tariffs} value={tariffId} onChange={id => selectParam('tariff', id)} />
         </Step>

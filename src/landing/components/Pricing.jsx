@@ -3,11 +3,18 @@ import { useEffect, useRef, useState } from 'react';
 import { deviceText, money, plans as demoPlans } from '../lib/pricing.js';
 import { useAnimatedNumber, useReducedMotion } from '../lib/useMotion.js';
 import { Icon } from '../../ui/icons.jsx';
-import { configPrice, loadPublicTariffs, siteTariffs } from '../../lib/tariffs.js';
+import { configPrice, loadLandingGroup, loadPublicTariffs, siteTariffs } from '../../lib/tariffs.js';
 import { api } from '../../lib/api.js';
 import { useAuth } from '../../lib/auth.jsx';
 
 const deviceCounts = Array.from({ length: 10 }, (_, index) => index + 1);
+
+function landingDeviceOptions(tariff) {
+  if (!tariff.configurable || !tariff.device_options?.length) return [tariff.device_limit ?? 0];
+  const options = [...tariff.device_options].sort((a, b) => a - b);
+  const compact = options.filter(n => n <= 10);
+  return compact.length ? compact : [options[0]];
+}
 
 // Demo durations reserve space while loading. Only live API quotes can be bought.
 function useLivePlans() {
@@ -17,8 +24,8 @@ function useLivePlans() {
   useEffect(() => {
     let alive = true;
     setLoadError(false);
-    loadPublicTariffs({ refresh: attempt > 0 }).then((all) => {
-      const live = siteTariffs(all).slice(0, 4).map((t) => ({ id: t.id, days: t.duration_days, from: t.price_rub, maxDevices: Math.max(...(t.device_options || [1])) }));
+    Promise.all([loadPublicTariffs({ refresh: attempt > 0 }), loadLandingGroup()]).then(([all, group]) => {
+      const live = siteTariffs(all, group).slice(0, 4).map((t) => ({ id: t.id, days: t.duration_days, from: t.price_rub, limits: landingDeviceOptions(t), configurable: t.configurable && Boolean(t.device_options?.length) }));
       if (!live.length) throw new Error('No available plans');
       if (alive) setPlans(live);
     }).catch(() => { if (alive) setLoadError(true); });
@@ -31,7 +38,7 @@ export default function Pricing({ copy, locale, onCheckout }) {
   const { me } = useAuth();
   const { plans, loadError, retryPlans } = useLivePlans();
   const [planId, setPlanId] = useState(plans[0].id);
-  const [devices, setDevices] = useState(1);
+  const [preferredDevices, setDevices] = useState(1);
   const [promo, setPromo] = useState('');
   const [promoState, setPromoState] = useState('idle');
   const [discount, setDiscount] = useState(0);
@@ -42,9 +49,10 @@ export default function Pricing({ copy, locale, onCheckout }) {
   const inputRef = useRef(null);
   const reduced = useReducedMotion();
   const plan = plans.find((item) => item.id === planId) || plans[0];
+  const limits = plan.limits || deviceCounts;
+  const devices = limits.includes(preferredDevices) ? preferredDevices : limits[0];
+  const devicesLabel = n => n === 0 ? (locale === 'en' ? 'Unlimited devices' : 'Без лимита устройств') : deviceText(n, locale);
   const livePrice = quote?.tariffId === plan.id && quote?.devices === devices ? quote.price : null;
-  const maxDevices = Math.max(1, Math.min(10, Number(plan.maxDevices) || 10));
-  useEffect(() => { setDevices((current) => Math.min(current, maxDevices)); }, [maxDevices]);
   useEffect(() => { if (!plans.some((p) => p.id === planId)) setPlanId(plans[0].id); }, [plans, planId]);
 
   useEffect(() => {
@@ -52,7 +60,7 @@ export default function Pricing({ copy, locale, onCheckout }) {
     setQuote(null);
     setPriceError(false);
     if (plan.demo) return undefined;
-    configPrice(plan.id, devices).then((raw) => {
+    configPrice(plan.id, plan.configurable ? devices : undefined).then((raw) => {
       const price = Number(raw);
       if (raw == null || !Number.isFinite(price) || price < 0) throw new Error('Invalid quote');
       if (alive) setQuote({ tariffId: plan.id, devices, price });
@@ -74,7 +82,7 @@ export default function Pricing({ copy, locale, onCheckout }) {
     const controller = new AbortController();
     setDiscount(0);
     setPromoState('checking');
-    api.post('/tariffs/purchase', { tariff_id: plan.id, selected_device_limit: devices, coupon_code: promo.trim(), autopay_consent: false },
+    api.post('/tariffs/purchase', { tariff_id: plan.id, selected_device_limit: plan.configurable ? devices : undefined, coupon_code: promo.trim(), autopay_consent: false },
       { query: { preview: true }, signal: controller.signal })
       .then((r) => {
         if (r.applied_coupon_code) { setDiscount(r.discount_rub || 0); setPromoState('applied'); }
@@ -85,12 +93,12 @@ export default function Pricing({ copy, locale, onCheckout }) {
   }, [active, me, plan, devices]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectDevice = (next, focus = false) => {
-    const bounded = Math.max(1, Math.min(maxDevices, next));
-    setDevices(bounded);
-    if (focus) requestAnimationFrame(() => document.getElementById(`device-${bounded}`)?.focus({ preventScroll: true }));
+    setDevices(next);
+    if (focus) requestAnimationFrame(() => document.getElementById(`device-${next}`)?.focus({ preventScroll: true }));
   };
   const onDeviceKey = (event) => {
-    const values = { ArrowLeft: devices - 1, ArrowRight: devices + 1, Home: 1, End: maxDevices };
+    const i = limits.indexOf(devices);
+    const values = { ArrowLeft: limits[Math.max(0, i - 1)], ArrowRight: limits[Math.min(limits.length - 1, i + 1)], Home: limits[0], End: limits.at(-1) };
     if (event.key in values) { event.preventDefault(); selectDevice(values[event.key], true); }
   };
   const onPlanKey = (event, index) => {
@@ -133,11 +141,11 @@ export default function Pricing({ copy, locale, onCheckout }) {
         <div className="device-configuration">
           <h3 id="devices-label">{copy.devices}</h3>
           <div className="device-configuration-row">
-            <div className="device-preview"><Icon name="device" size={27} /><span><strong>{deviceText(devices, locale)}</strong><small>{copy.heroNote}</small></span></div>
+            <div className="device-preview"><Icon name="device" size={27} /><span><strong>{devicesLabel(devices)}</strong><small>{copy.heroNote}</small></span></div>
           </div>
           <div className="device-quick" role="radiogroup" aria-labelledby="devices-label" onKeyDown={onDeviceKey}>
-            {deviceCounts.map((value) => <button id={`device-${value}`} key={value} type="button" role="radio" aria-label={deviceText(value, locale)} disabled={value > maxDevices}
-              aria-checked={value === devices} tabIndex={value === devices ? 0 : -1} onClick={() => selectDevice(value)}>{value}</button>)}
+            {limits.map((value) => <button id={`device-${value}`} key={value} type="button" role="radio" aria-label={devicesLabel(value)}
+              aria-checked={value === devices} tabIndex={value === devices ? 0 : -1} onClick={() => selectDevice(value)}>{value || '∞'}</button>)}
           </div>
         </div>
         <Disclosure className="promo-disclosure" label={<><Icon name="tag" size={19} /><span>{copy.promo}</span><Icon name="plus" size={18} /></>}>
@@ -155,13 +163,13 @@ export default function Pricing({ copy, locale, onCheckout }) {
       </div>
       <aside className="summary-card" aria-label={copy.selectionTitle}>
         <div className="summary-heading"><h3>{copy.selectionTitle}</h3><img className="summary-mascot" src="/icons/logo.svg" alt="" width="48" height="48" /></div>
-        <div className="selection-recap"><span><Icon name="clock" size={21} />{plan.days} {copy.days}</span><span><Icon name="device" size={21} />{deviceText(devices, locale)}</span></div>
+        <div className="selection-recap"><span><Icon name="clock" size={21} />{plan.days} {copy.days}</span><span><Icon name="device" size={21} />{devicesLabel(devices)}</span></div>
         <div className="price-line" aria-busy={calculating && !priceError && !loadError}>
           <output className="summary-price" aria-hidden="true">{calculating ? '…' : money(displayedPrice, locale)}</output>
           {discount > 0 && !calculating && <span className="price-before"><s>{money(base, locale)}</s><span>{copy.discount}</span></span>}
           <p>{locale === 'en' ? 'for the entire period' : 'за весь период'}</p>
         </div>
-        <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{copy.summaryTitle(plan.days)}, {deviceText(devices, locale)}, {calculating ? copy.applying : `${copy.total}: ${money(total, locale)}`}</p>
+        <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{copy.summaryTitle(plan.days)}, {devicesLabel(devices)}, {calculating ? copy.applying : `${copy.total}: ${money(total, locale)}`}</p>
         {(priceError || loadError) && <div className="landing-price-error" role="alert"><p>{locale === 'en' ? 'Could not calculate the price.' : 'Не удалось рассчитать стоимость.'}</p><button type="button" onClick={() => loadError ? retryPlans() : setPriceRetry((n) => n + 1)}>{locale === 'en' ? 'Try again' : 'Повторить'}</button></div>}
         <ul className="plan-features">{copy.features.map((feature) => <li key={feature}><Icon name="check" size={20} /><span>{feature}</span></li>)}</ul>
         <div className="checkout-area"><button type="button" className="checkout-button" disabled={calculating || checking}

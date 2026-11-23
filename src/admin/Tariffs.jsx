@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api.js';
 import { useDocumentTitle, useLoad } from '../lib/hooks.js';
 import { rub } from '../lib/format.js';
+import { useSiteSettings } from '../lib/siteSettings.js';
 import { TARIFF_GROUP, cleanName } from '../lib/tariffs.js';
 import { Badge, Button, Card, Input, Loadable, Modal, PageHead, Segmented, Table, Toggle, useToast } from '../ui/index.jsx';
 
@@ -70,21 +71,23 @@ function EditModal({ tariff, onClose, onSaved }) {
 export default function Tariffs() {
   useDocumentTitle('Тарифы');
   const state = useLoad((signal) => api.get('/tariffs', { limit: 500 }, { signal }), []);
-  const [group, setGroup] = useState(TARIFF_GROUP);
+  const landingGroup = useSiteSettings()?.landing_tariff_group || TARIFF_GROUP;
+  const [selectedGroup, setGroup] = useState(null);
+  const group = selectedGroup ?? landingGroup;
   const [editing, setEditing] = useState(null);
   const groups = useMemo(() => {
     const map = {};
     (state.data || []).forEach((t) => { map[t.group_code] = (map[t.group_code] || 0) + 1; });
-    return Object.entries(map).sort(([a], [b]) => (a === TARIFF_GROUP ? -1 : b === TARIFF_GROUP ? 1 : a.localeCompare(b)));
-  }, [state.data]);
+    return Object.entries(map).sort(([a], [b]) => (a === landingGroup ? -1 : b === landingGroup ? 1 : a.localeCompare(b)));
+  }, [state.data, landingGroup]);
   const rows = (state.data || []).filter((t) => t.group_code === group).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
   return <>
-    <PageHead title="Тарифы" subtitle={`Группа «${TARIFF_GROUP}» показывается на главной сайта. Остальные группы — для бота, скидок и подарков.`} />
+    <PageHead title="Тарифы" subtitle={`На лендинге показывается группа «${landingGroup}». Изменить её можно в разделе «Сайт → Лендинг».`} />
     <Card>
       <Loadable state={state}>{() => <>
         <div className="toolbar">
-          <Segmented label="Группа" value={group} onChange={setGroup} options={groups.map(([g, n]) => ({ value: g, label: g === TARIFF_GROUP ? `${g} · сайт` : g, count: n }))} />
+          <Segmented label="Группа" value={group} onChange={setGroup} options={groups.map(([g, n]) => ({ value: g, label: g === landingGroup ? `${g} · сайт` : g, count: n }))} />
         </div>
         <Table rows={rows} rowKey={(t) => t.id} onRowClick={setEditing}
           columns={[

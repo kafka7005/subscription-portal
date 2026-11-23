@@ -68,7 +68,7 @@ export default function Landing() {
   };
 
   const onCheckout = ({ tariffId, devices, promo }) => {
-    const q = new URLSearchParams({ tariff: tariffId, devices });
+    const q = new URLSearchParams({ tariff: tariffId, devices, source: 'landing' });
     if (promo) q.set('promo', promo);
     const target = `/cabinet/buy?${q}`;
     if (me) navigate(target); else setLoginNext(target);

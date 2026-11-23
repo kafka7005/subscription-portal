@@ -5,6 +5,7 @@ import { useDocumentTitle } from '../lib/hooks.js';
 import { DEFAULT_SITE, SITE_SLUG, docSlug, mergeSite, readKzPage, writeKzPage } from '../lib/siteSettings.js';
 import { Markdown } from '../lib/markdown.jsx';
 import { dateTime } from '../lib/format.js';
+import LandingTariffs from './LandingTariffs.jsx';
 import MenuEditor from './MenuEditor.jsx';
 import FaqEditor from './FaqEditor.jsx';
 import DownloadsEditor from './DownloadsEditor.jsx';
@@ -119,7 +120,7 @@ export default function SiteAdmin() {
 
   return <>
     <PageHead title="Сайт" subtitle="Технические работы, плашка и меню кабинета, FAQ, страница загрузки, документы." />
-    <Tabs value={tab} onChange={(v) => setParams({ tab: v })} tabs={[...(isAdmin ? [{ value: 'updates', label: 'Обновления' }] : []), { value: 'maintenance', label: 'Технические работы' }, { value: 'banner', label: 'Плашка' }, { value: 'status', label: 'Статус сервиса' }, { value: 'menu', label: 'Меню' }, { value: 'faq', label: 'FAQ' }, { value: 'downloads', label: 'Загрузка' }, { value: 'docs', label: 'Документы' }]} />
+    <Tabs value={tab} onChange={(v) => setParams({ tab: v })} tabs={[...(isAdmin ? [{ value: 'updates', label: 'Обновления' }] : []), { value: 'maintenance', label: 'Технические работы' }, { value: 'banner', label: 'Плашка' }, { value: 'status', label: 'Статус сервиса' }, { value: 'landing', label: 'Лендинг' }, { value: 'menu', label: 'Меню' }, { value: 'faq', label: 'FAQ' }, { value: 'downloads', label: 'Загрузка' }, { value: 'docs', label: 'Документы' }]} />
 
     {tab === 'updates' && isAdmin && <SiteUpdates />}
     {tab === 'maintenance' && <Card>
@@ -168,6 +169,9 @@ export default function SiteAdmin() {
         {!site.banner.enabled && <p className="help-text" style={{ marginTop: 10 }}>Сейчас плашка выключена.</p>}
       </Card>
     </div>}
+
+    {tab === 'landing' && <LandingTariffs saved={site.landing_tariff_group} busy={busy}
+      onSave={group => save({ ...site, landing_tariff_group: group }, 'Тарифы лендинга сохранены')} />}
 
     {tab === 'menu' && <MenuEditor site={site} busy={busy} onSave={(nav) => save({ ...site, nav }, nav.length ? 'Меню сохранено' : 'Вернули меню по умолчанию')} />}
 

@@ -80,7 +80,7 @@ export default function Pricing({ copy, locale, onCheckout }) {
         if (r.applied_coupon_code) { setDiscount(r.discount_rub || 0); setPromoState('applied'); }
         else { setDiscount(0); setPromoState('invalid'); }
       })
-      .catch((err) => { if (err.name !== 'AbortError') { setDiscount(0); setPromoState('invalid'); } });
+      .catch((err) => { if (err.name !== 'AbortError') { setDiscount(0); setPromoState(err.data?.detail?.code === 'single_subscription' ? 'limit' : 'invalid'); } });
     return () => controller.abort();
   }, [active, me, plan, devices]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -114,7 +114,7 @@ export default function Pricing({ copy, locale, onCheckout }) {
   const editPromo = (event) => {
     setPromo(event.target.value.toUpperCase().replace(/\s/g, '')); setPromoState('idle'); setDiscount(0);
   };
-  const promoMessage = checking ? copy.applying + '…' : promoState === 'applied' ? (me && discount > 0 ? `${copy.discount}: −${money(discount, locale)}` : copy.promoApplied) : promoState === 'invalid' ? copy.promoInvalid : promoState === 'empty' ? copy.promoEmpty : promoFocused ? copy.promoDemo : '';
+  const promoMessage = promoState === 'limit' ? (locale === 'en' ? 'You can renew your existing subscription in your account.' : 'Действующую подписку можно продлить в кабинете.') : checking ? copy.applying + '…' : promoState === 'applied' ? (me && discount > 0 ? `${copy.discount}: −${money(discount, locale)}` : copy.promoApplied) : promoState === 'invalid' ? copy.promoInvalid : promoState === 'empty' ? copy.promoEmpty : promoFocused ? copy.promoDemo : '';
 
   return <section className="pricing-section" id="plans" aria-labelledby="pricing-title">
     <h2 id="pricing-title">{copy.configure}</h2>

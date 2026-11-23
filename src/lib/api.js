@@ -13,6 +13,7 @@ export class ApiError extends Error {
 function detailMessage(data, status) {
   const detail = data?.detail ?? data?.message ?? data?.error;
   if (typeof detail === 'string') return detail;
+  if (typeof detail?.message === 'string') return detail.message;
   if (Array.isArray(detail) && detail[0]?.msg) return detail.map((d) => d.msg).join('; ');
   if (status === 401) return 'Нужно войти в аккаунт';
   if (status === 403) return 'Недостаточно прав';

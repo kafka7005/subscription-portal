@@ -29,6 +29,7 @@ export default function Buy() {
   const [promoOpen, setPromoOpen] = useState(Boolean(params.get('promo')));
   const [preview, setPreview] = useState(null);
   const [previewError, setPreviewError] = useState(null);
+  const [retry, setRetry] = useState(0);
   const [paying, setPaying] = useState(false);
 
   const tariff = tariffs.find((t) => t.id === tariffId) || null;
@@ -64,7 +65,7 @@ export default function Buy() {
       .then((res) => { if (!controller.signal.aborted) setPreview({ ...res, _coupon: debouncedBody.coupon_code || '', _request: JSON.stringify(debouncedBody), _path: path }); })
       .catch((err) => { if (err.name !== 'AbortError') { setPreview(null); setPreviewError(err); } });
     return () => controller.abort();
-  }, [debouncedBody, path, renewId]);
+  }, [debouncedBody, path, renewId, retry, config]);
 
   const stale = !preview || preview._request !== JSON.stringify(body) || preview._path !== path;
   const toPay = preview?.payment_required ? preview.required_amount_rub : 0;
@@ -97,9 +98,18 @@ export default function Buy() {
       if (res.ok === false) throw new Error(res.message || 'Не удалось оформить');
       toast(res.message || (renewId ? 'Подписка продлена' : 'Подписка оформлена'));
       navigate('/cabinet', { replace: true });
-    } catch (err) { toast.error(err); setPaying(false); }
+    } catch (err) {
+      if (err.data?.detail?.code === 'single_subscription') setPreviewError(err);
+      else toast.error(err);
+      setPaying(false);
+    }
   };
 
+  if (!renewId && previewError?.data?.detail?.code === 'single_subscription') return <>
+    <PageHead title="У вас уже есть подписка" subtitle="Откройте её в личном кабинете, чтобы посмотреть условия и продлить срок." />
+    <div className="row"><Button to="/cabinet">Мои подписки</Button>
+      <Button variant="secondary" onClick={() => setRetry(n => n + 1)}>Проверить снова</Button></div>
+  </>;
   if (tariffsState.error) return <ErrorBox error={tariffsState.error} />;
   if (!tariffsState.data || (renewId && renewKey.loading)) return <Spinner />;
   const rk = renewKey.data;

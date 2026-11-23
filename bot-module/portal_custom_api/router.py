@@ -3,6 +3,8 @@ from aiogram import Router
 
 router = Router(name="portal_custom_api_module")
 async def on_startup(**kwargs):
+    from .single_subscription import install_completion_guard
+    install_completion_guard()
     from .broadcast_status import install_tracking
     install_tracking()
     from .support_reminders import start_worker

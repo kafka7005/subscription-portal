@@ -132,6 +132,8 @@ export default function Home() {
   const { summary } = useOutletContext();
   const keys = useLoad((signal) => api.get('/keys', null, { signal }), []);
   const actions = useLoad((signal) => api.get('/keys/actions-config', null, { signal }).catch(() => ({})), [config]).data;
+  const mode = useLoad(signal => api.get('/portal/subscription-mode', null, { signal }), [config]);
+  const allowExtra = mode.data?.single === false || mode.error?.status === 404;
   const tariffs = usePublicTariffs().data;
   const [emailOpen, setEmailOpen] = useState(false);
   const [devicesSub, setDevicesSub] = useState(null);
@@ -157,7 +159,7 @@ export default function Home() {
 
   return <div className="cabinet-home">
     <header className="cabinet-intro"><div><h1>Твой интернет.</h1><p>Всё под контролем.</p></div>
-      {list.length > 0 && <Button variant="ghost" size="sm" icon="plus" to="/cabinet/buy">Ещё подписка</Button>}
+      {list.length > 0 && allowExtra && <Button variant="ghost" size="sm" icon="plus" to="/cabinet/buy">Ещё подписка</Button>}
     </header>
     {statusText && <p className={`cabinet-status ${list.length && !active.length ? 'tone-warn' : 'muted'}`}>{statusText}</p>}
     <div className="cabinet-overview">
@@ -168,7 +170,7 @@ export default function Home() {
             : <>
               <SubscriptionCard sub={primary} tariffs={tariffs} actions={actions} onDevices={setDevicesSub} featured details={primaryDetails.data} />
               {other.map((sub) => <SubscriptionCard key={sub.client_id} sub={sub} tariffs={tariffs} actions={actions} onDevices={setDevicesSub} />)}
-              <Link className="subscriptions-add" to="/cabinet/buy"><Icon name="plus" size={17} />Ещё подписка</Link>
+              {allowExtra && <Link className="subscriptions-add" to="/cabinet/buy"><Icon name="plus" size={17} />Ещё подписка</Link>}
             </>}
     </section>
     <aside className="cabinet-account" aria-label="Аккаунт и бонусы">

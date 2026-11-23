@@ -3,6 +3,8 @@ from aiogram import Router
 
 router = Router(name="portal_custom_api_module")
 async def on_startup(**kwargs):
+    from .subscriptions.telegram_rotation import install as install_rotation
+    install_rotation()
     from .subscriptions.single_subscription import install_completion_guard
     install_completion_guard()
     from .campaigns.broadcast_status import install_tracking

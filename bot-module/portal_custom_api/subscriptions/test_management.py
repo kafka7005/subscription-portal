@@ -102,6 +102,57 @@ class SubscriptionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(panel.aclose.await_count,4)
         self.assertEqual(self.key.key,self.key.remnawave_link)
 
+    async def test_rotations_across_channels(self):
+        from .telegram_rotation import rotation_scope
+
+        self.start(patch('database.servers.get_servers',AsyncMock(return_value={'cluster':[{'panel_type':'remnawave','api_url':'fixture'}]})))
+        lock = self.start(patch('database.keys.lock_owned_key_for_operation', AsyncMock(return_value=self.key)))
+        panel = AsyncMock()
+        bound = {}
+        record = {'uuid':'fixture', 'username':'fixture', 'subscriptionUrl':'old'}
+        panel.bind_subscription = MagicMock(side_effect=lambda identity,name,link: bound.update(link=link))
+        async def lookup(identity,username):
+            return dict(record) if record['subscriptionUrl'] == bound.get('link') else None
+        async def revoke(identity,username):
+            self.assertEqual((identity,username),(record['uuid'],'fixture'))
+            record.update(uuid=record['uuid']+'-r', subscriptionUrl=record['subscriptionUrl']+'-r')
+            return dict(record)
+        panel.get_user_by_uuid.side_effect = lookup
+        panel.revoke_user_subscription.side_effect = revoke
+        self.start(patch('panels.remnawave.RemnawaveAPI',return_value=panel))
+        from handlers.admin.users.users_keys import lifecycle
+        from .telegram_rotation import install
+        self.start(patch.object(lifecycle,'remnawave_panel',SimpleNamespace(RemnawaveAPI=lambda url: panel)))
+        self.start(patch.object(lifecycle,'resolve_callback_key',AsyncMock(return_value=self.key)))
+        self.start(patch.object(lifecycle,'get_servers',AsyncMock(return_value={'cluster':[{'panel_type':'remnawave','api_url':'fixture'}]})))
+        self.start(patch.object(lifecycle,'chat_id_for_user',AsyncMock(return_value=111)))
+        self.start(patch.object(lifecycle,'admin_action_allowed',return_value=False))
+        async def save_native_link(session,email,link):
+            self.key.key = self.key.remnawave_link = link
+            return True
+        self.start(patch.object(lifecycle,'update_key_subscription_links',side_effect=save_native_link))
+        with patch.object(lifecycle.router.callback_query,'middleware') as register:
+            install()
+            install()
+            register.assert_called_once_with(rotation_scope)
+        adapter = lifecycle.remnawave_panel
+        event = SimpleNamespace(data='confirm_recreate|u10|fixture',message=AsyncMock(),bot=AsyncMock())
+        async def native_callback(event,data):
+            await lifecycle.handle_recreate_key_confirm(event, data['session'], data['admin_user_ref'])
+        async def web():
+            return await rotation.rotate_link(self.session,self.key)
+        async def telegram():
+            await rotation_scope(native_callback, event, {'session':self.session,'admin_user_ref':10})
+        await web()
+        await telegram()
+        await web()
+        await telegram()
+        self.assertEqual(self.key.key,'old-r-r-r-r')
+        self.assertEqual(event.bot.send_message.await_count,2)
+        self.assertEqual(lock.await_count,2)
+        self.assertEqual(panel.revoke_user_subscription.await_count,4)
+        self.assertIs(adapter.RemnawaveAPI('fixture'),panel)
+
     async def test_rebuild_target(self):
         from core.bootstrap import MODES_CONFIG
         self.start(patch.dict(MODES_CONFIG, COUNTRY_SELECTION_ENABLED=True))

@@ -1,4 +1,5 @@
 import SiteUpdates from './SiteUpdates.jsx';
+import ModuleUpdates from './ModuleUpdates.jsx';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useDocumentTitle } from '../lib/hooks.js';
@@ -122,7 +123,7 @@ export default function SiteAdmin() {
     <PageHead title="Сайт" subtitle="Технические работы, плашка и меню кабинета, FAQ, страница загрузки, документы." />
     <Tabs value={tab} onChange={(v) => setParams({ tab: v })} tabs={[...(isAdmin ? [{ value: 'updates', label: 'Обновления' }] : []), { value: 'maintenance', label: 'Технические работы' }, { value: 'banner', label: 'Плашка' }, { value: 'status', label: 'Статус сервиса' }, { value: 'landing', label: 'Лендинг' }, { value: 'menu', label: 'Меню' }, { value: 'faq', label: 'FAQ' }, { value: 'downloads', label: 'Загрузка' }, { value: 'docs', label: 'Документы' }]} />
 
-    {tab === 'updates' && isAdmin && <SiteUpdates />}
+    {tab === 'updates' && isAdmin && <div className="stack"><SiteUpdates /><ModuleUpdates /></div>}
     {tab === 'maintenance' && <Card>
       <div className="stack">
         <div className="row-between">

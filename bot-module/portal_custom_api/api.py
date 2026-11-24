@@ -360,4 +360,5 @@ def get_api_routers(version: int) -> list[APIRouter]:
     install_access_filter()
     install_cache_hooks()
     from .payments.checkout_status import get_router as checkout_router
-    return [router, checkout_router('/api/portal'), management_router('/api/portal'), subscription_router('/api/portal', version), bot_stats_router('/api/portal'), giveaways_router('/api/portal'), status_router, get_router(), get_admin_audit_router(), get_customer_tools_router(), get_admin_operations_router(), get_manual_autopay_router(), get_manual_autopay_admin_router(), get_canned_replies_router(), get_support_tools_router(), get_support_reminders_router()]
+    from .staff.module_updates import router as module_updates_router
+    return [router, module_updates_router, checkout_router('/api/portal'), management_router('/api/portal'), subscription_router('/api/portal', version), bot_stats_router('/api/portal'), giveaways_router('/api/portal'), status_router, get_router(), get_admin_audit_router(), get_customer_tools_router(), get_admin_operations_router(), get_manual_autopay_router(), get_manual_autopay_admin_router(), get_canned_replies_router(), get_support_tools_router(), get_support_reminders_router()]

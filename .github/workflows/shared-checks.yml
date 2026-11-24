@@ -20,6 +20,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install loguru==0.7.3 fastapi==0.128.7 sqlalchemy==2.0.38
+      - name: Module updater and rollback
+        run: python -m unittest discover -s ops/module-updater -p test_worker.py
       - name: Module tests with isolated fixtures
         run: |
           set -eu

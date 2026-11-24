@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.depends import get_session, verify_identity_token
+from database.cache_purge import flush_purges
 
 
 class TransferBody(BaseModel):
@@ -43,16 +44,29 @@ def record_transfer(session, owner, operation, amount):
         path_or_handler='partner:transfer', result='success', metadata_={'amount': str(amount)}))
 
 
+def queue_balance_refresh(session, owner):
+    from ..site_activity import defer_account_balance
+    defer_account_balance(session, owner)
+
+
 def confirmed(amount):
     return {'ok': True, 'amount_rub': float(amount), 'message': 'Средства переведены на баланс'}
+
+
+async def partner_balance(session, owner):
+    from database import partners
+    profile = await partners.get_partner_profile(session, owner)
+    return {"balance_rub": float(profile.get("partner_balance") or 0)} if profile else {}
 
 
 def get_router():
     router = APIRouter(prefix="/api/portal", tags=["Portal site actions"])
 
     @router.get("/partner-transfer/options")
-    async def options(identity=Depends(verify_identity_token)):
-        return transfer_options()
+    async def options(request: Request, identity=Depends(verify_identity_token), session: AsyncSession = Depends(get_session)):
+        from api.v2.routes.partners import _resolve_partner_user
+        owner, _ = await _resolve_partner_user(session, request, identity)
+        return {**transfer_options(), **await partner_balance(session, owner)}
 
     @router.get("/partner-transfer/{operation}")
     async def transfer_status(operation: UUID, request: Request, identity=Depends(verify_identity_token),
@@ -61,7 +75,7 @@ def get_router():
         owner, _ = await _resolve_partner_user(session, request, identity)
         saved = await completed_transfer(session, owner, operation)
         if saved:
-            return {'state':'done', **confirmed(saved['amount'])}
+            return {'state':'done', **confirmed(saved['amount']), **await partner_balance(session, owner)}
         from core.redis_cache import _get_redis
         redis = await _get_redis()
         if redis is None:
@@ -71,7 +85,7 @@ def get_router():
             return {'state':'not_found'}
         prior = json.loads(raw)
         if prior.get('state') == 'done':
-            return {'state':'done', **prior['result']}
+            return {'state':'done', **confirmed(prior['amount']), **await partner_balance(session, owner)}
         return {'state':'unconfirmed'}
 
     @router.post("/partner-transfer")
@@ -93,7 +107,7 @@ def get_router():
         if saved is not None:
             if Decimal(saved['amount']) != body.amount_rub:
                 raise HTTPException(409, "Номер операции уже использован для другой суммы")
-            return confirmed(saved['amount'])
+            return {**confirmed(saved['amount']), **await partner_balance(session, uid)}
         redis = await _get_redis()
         if redis is None:
             raise HTTPException(503, "Защита платежей недоступна. Попробуйте позже")
@@ -107,7 +121,7 @@ def get_router():
             if prior.get("amount") != str(amount):
                 raise HTTPException(409, "Номер операции уже использован для другой суммы")
             if prior.get("state") == "done":
-                return prior["result"]
+                return {**confirmed(prior['amount']), **await partner_balance(session, uid)}
             raise HTTPException(409, "Операция уже принята. Обновите баланс перед повторной попыткой")
         started = False
         try:
@@ -124,8 +138,10 @@ def get_router():
             started = True
             # Locks the same user, debits partner balance, credits main balance,
             # records approved payout, commits and invalidates the bot cache.
+            queue_balance_refresh(session, uid)
             await move_partner_to_main(session, int(profile["tg_id"]), float(amount))
-            result = confirmed(amount)
+            await flush_purges(session)
+            result = {**confirmed(amount), "balance_rub": float(balance - amount)}
             await redis.set(receipt, json.dumps({"state": "done", "amount": str(amount), "result": result}), ex=604800)
             return result
         except (HTTPException, ValueError) as exc:

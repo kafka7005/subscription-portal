@@ -9,6 +9,7 @@ from sqlalchemy import select, text
 from api.depends import get_session, verify_identity_token
 from api.ratelimit import enforce_rate_limit
 from database.models import AuditEvent
+from database.cache_purge import flush_purges
 
 EVENT = 'site_checkout_attempt'
 
@@ -40,6 +41,7 @@ async def submit(reference, action, body, target, request, session, identity, pe
         if result.payment_url:
             row.metadata_ = {'fingerprint':fingerprint,'payment_id':result.payment_id}
         await session.commit()
+        await flush_purges(session)
         return result
     except HTTPException as exc:
         await session.rollback()

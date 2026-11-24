@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { useDocumentTitle, useLoad } from '../lib/hooks.js';
@@ -64,6 +64,7 @@ function LocationModal({ open, onClose, sub }) {
 
 export default function Subscription() {
   const { clientId } = useParams();
+  const { summary } = useOutletContext();
   const navigate = useNavigate();
   const toast = useToast();
   const confirm = useConfirm();
@@ -101,7 +102,7 @@ export default function Subscription() {
   const removeDevice = (dev) => deviceActions.removeOne(dev, deviceName(dev));
   const deleteSub = async () => {
     if (!await confirm({ title: 'Удалить подписку?', text: 'Подписка будет удалена без возврата средств. Это действие нельзя отменить.', confirmText: 'Удалить навсегда', danger: true })) return;
-    try { await api.del(`/keys/${enc(clientId)}`); toast('Подписка удалена'); navigate('/cabinet', { replace: true }); } catch (err) { toast.error(err); }
+    try { await api.del(`/keys/${enc(clientId)}`); summary.reload(true); toast('Подписка удалена'); navigate('/cabinet', { replace: true, state: { deletedSubscription: clientId } }); } catch (err) { toast.error(err); }
   };
 
   return <>

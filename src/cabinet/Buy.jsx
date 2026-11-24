@@ -1,6 +1,7 @@
 import { renewalSummary } from '../lib/renewalSummary.js';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { checkoutBaseline, checkoutReturnUrls, saveCheckout } from '../lib/checkoutReturn.js';
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { useDebounced, useDocumentTitle, useLoad } from '../lib/hooks.js';
@@ -25,6 +26,8 @@ function Checkout({ renewId }) {
   const toast = useToast();
   const confirm = useConfirm();
   const { config, me } = useAuth();
+  const { summary } = useOutletContext();
+  const purchaseKeys = useLoad(signal => renewId ? null : api.get('/keys', null, { signal }), [me?.id, renewId]);
   const tariffsState = usePublicTariffs();
   const fromLanding = !renewId && params.get('source') === 'landing';
   const landing = useLoad(signal => fromLanding ? loadLandingGroup(signal) : null, [fromLanding]);
@@ -35,7 +38,7 @@ function Checkout({ renewId }) {
       api.get('/keys', null, { signal }),
     ]);
     const key = keys.find(item => item.client_id === renewId);
-    return { ...details, tariff_id: key?.tariff_id ?? null };
+    return { ...details, tariff_id: key?.tariff_id ?? null, baseline: checkoutBaseline(keys, renewId) };
   }, [renewId]);
 
   const currentPlan = tariffsState.data?.find(t => t.id === renewKey.data?.tariff_id);
@@ -150,15 +153,20 @@ function Checkout({ renewId }) {
     try {
       const endpoint = '/portal/checkout/'+reference+(renewId ? '/renew/'+encodeURIComponent(renewId) : '/purchase');
       const res = await api.post(endpoint, {
-        ...body, ...consent.payload, provider_id: toPay ? choice.provider : undefined, accepted_gross_amount: toPay ? choice.acceptedGross : undefined, ...returnUrls(),
+        ...body, ...consent.payload, provider_id: toPay ? choice.provider : undefined, accepted_gross_amount: toPay ? choice.acceptedGross : undefined, ...checkoutReturnUrls(returnUrls(), reference),
       });
       if (!res || typeof res !== 'object') throw new Error('Сервер не подтвердил результат операции');
       if (res.receipt_state) { setPaying(false); return; }
       if (typeof res.ok !== 'boolean') throw new Error('Неизвестный результат операции');
       remember(null);
-      if (res.payment_url) { window.location.assign(res.payment_url); return; }
+      if (res.payment_url) {
+        saveCheckout(me.id, reference, renewId ? renewKey.data?.baseline : checkoutBaseline(purchaseKeys.data));
+        window.location.assign(res.payment_url);
+        return;
+      }
       if (res.ok === false) throw new Error(res.message || 'Не удалось оформить');
       toast(res.message || (renewId ? 'Подписка продлена' : 'Подписка оформлена'));
+      summary.reload(true);
       navigate('/cabinet', { replace: true });
     } catch (err) {
       if ([401,403,404,409,422,429].includes(err.status)) remember(null);

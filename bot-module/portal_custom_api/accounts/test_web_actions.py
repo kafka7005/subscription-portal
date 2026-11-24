@@ -28,6 +28,7 @@ stub('api.depends', get_session=lambda: None, verify_identity_token=lambda: None
 stub('api.ratelimit', enforce_rate_limit=AsyncMock())
 stub('api.v2.routes.partners', _resolve_partner_user=AsyncMock())
 stub('core.redis_cache', _get_redis=AsyncMock())
+stub('database.cache_purge', flush_purges=AsyncMock())
 stub('database.partners', get_partner_profile=AsyncMock())
 stub('modules.partner_program.handlers.payments', move_partner_to_main=AsyncMock())
 spec = importlib.util.spec_from_file_location('web_actions_test_target', pathlib.Path(__file__).with_name('web_actions.py'))
@@ -54,6 +55,7 @@ class TransferTests(unittest.IsolatedAsyncioTestCase):
         patches = [
             patch.object(module, 'completed_transfer', AsyncMock(return_value=None)),
             patch.object(module, 'record_transfer'),
+            patch.object(module, 'queue_balance_refresh'),
             patch.object(module, 'transfer_options', return_value=self.cfg),
             patch('api.v2.routes.partners._resolve_partner_user', AsyncMock(return_value=(7, 42))),
             patch('core.redis_cache._get_redis', AsyncMock(return_value=self.redis)),
@@ -70,7 +72,10 @@ class TransferTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_duplicate_returns_receipt_without_second_transfer(self):
         first = await self.call()
-        self.assertEqual(first, await self.call())
+        self.assertEqual(first['balance_rub'], 74.5)
+        module.queue_balance_refresh.assert_called_once_with(self.session, 7)
+        self.profile.return_value['partner_balance'] = 70  # another operation since the original transfer
+        self.assertEqual((await self.call())['balance_rub'], 70)
         self.move.assert_awaited_once_with(self.session, 42, 25.5)
 
     async def test_insufficient_balance_never_calls_financial_service(self):

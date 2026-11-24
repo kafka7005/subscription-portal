@@ -49,7 +49,7 @@ export default function WithdrawModal({ balance, conditions, transfer, method, o
         ? await api.post('/portal/partner-transfer', { amount_rub: value, request_id: requestId })
         : await api.post('/partners/payouts/me', { amount_rub: value });
       if (internal) remember(false);
-      toast(result.message || 'Заявка отправлена'); onDone(); onClose();
+      toast(result.message || 'Заявка отправлена'); onDone(result); onClose();
     } catch (err) {
       if (internal && (!err.status || err.status >= 500 || err.status === 409)) setUncertain(true);
       else if (internal) remember(false);
@@ -64,7 +64,7 @@ export default function WithdrawModal({ balance, conditions, transfer, method, o
         setBusy(true);
         try {
           const result = await api.get('/portal/partner-transfer/'+requestId);
-          if (result.state === 'done') { remember(false); toast(result.message); onDone(); onClose(); }
+          if (result.state === 'done') { remember(false); toast(result.message); onDone(result); onClose(); }
           else if (result.state === 'not_found') { setUncertain(false); setDestination('balance'); toast('Операция не зарегистрирована. Номер для повтора сохранён.'); }
           else toast('Подтверждение пока не найдено. Проверьте историю баланса.');
         } catch (err) { toast.error(err); } finally { setBusy(false); }

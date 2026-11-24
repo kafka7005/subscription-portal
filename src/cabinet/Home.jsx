@@ -1,6 +1,9 @@
 import Disclosure from '../ui/Disclosure.jsx';
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import useSubscriptionRefresh from './useSubscriptionRefresh.js';
+import { pendingCheckout } from '../lib/checkoutReturn.js';
+import { readAfterDeletion } from '../lib/readAfterDeletion.js';
+import { Link, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { useDocumentTitle, useLoad } from '../lib/hooks.js';
@@ -125,12 +128,19 @@ function RedeemCard({ gifts, coupons }) {
   </Disclosure>;
 }
 
+function loadSubscriptions(signal, deleted) {
+  return readAfterDeletion(() => api.get('/keys', null, { signal }), deleted, signal);
+}
+
 export default function Home() {
   useDocumentTitle('Главная');
   const toast = useToast();
   const { me, config } = useAuth();
   const { summary } = useOutletContext();
-  const keys = useLoad((signal) => api.get('/keys', null, { signal }), []);
+  const { search, state } = useLocation();
+  const keys = useLoad(signal => loadSubscriptions(signal, state?.deletedSubscription), [me?.id, state?.deletedSubscription]);
+  const checkout = useMemo(() => pendingCheckout(me?.id, new URLSearchParams(search).get('checkout')), [me?.id, search]);
+  const payment = useSubscriptionRefresh(me?.id, checkout, keys.reload, summary.reload);
   const actions = useLoad((signal) => api.get('/keys/actions-config', null, { signal }).catch(() => ({})), [config]).data;
   const mode = useLoad(signal => api.get('/portal/subscription-mode', null, { signal }), [config]);
   const allowExtra = mode.data?.single === false || mode.error?.status === 404;
@@ -144,7 +154,7 @@ export default function Home() {
   const active = list.filter((k) => !remaining(k.expiry_time).expired && !k.is_frozen);
   const primary = active[0] || list[0];
   const other = list.filter((sub) => sub.client_id !== primary?.client_id);
-  const primaryDetails = useLoad((signal) => primary ? api.get(`/keys/${encodeURIComponent(primary.client_id)}/details`, null, { signal }).catch(() => null) : null, [primary?.client_id]);
+  const primaryDetails = useLoad((signal) => primary ? api.get(`/keys/${encodeURIComponent(primary.client_id)}/details`, null, { signal }).catch(() => null) : null, [primary?.client_id, primary?.expiry_time, primary?.tariff_id]);
   const trialAvailable = features.trial_enabled && s && Number(s.trial_status) === 0;
 
   const takeTrial = async () => {
@@ -161,6 +171,9 @@ export default function Home() {
     <header className="cabinet-intro"><div><h1>Твой интернет.</h1><p>Всё под контролем.</p></div>
       {list.length > 0 && allowExtra && <Button variant="ghost" size="sm" icon="plus" to="/cabinet/buy">Ещё подписка</Button>}
     </header>
+    {payment.notice && <div className="cabinet-status" role="status">
+      {payment.notice} <Button size="sm" variant="ghost" onClick={payment.check}>Проверить</Button>
+    </div>}
     {statusText && <p className={`cabinet-status ${list.length && !active.length ? 'tone-warn' : 'muted'}`}>{statusText}</p>}
     <div className="cabinet-overview">
     <section id="subs" className="cabinet-subscriptions" aria-label="Мои подписки">

@@ -19,6 +19,7 @@ class CheckoutTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         deps = {'api.depends': SimpleNamespace(get_session=None,verify_identity_token=None),
                 'api.ratelimit': SimpleNamespace(enforce_rate_limit=AsyncMock()),
+                'database.cache_purge': SimpleNamespace(flush_purges=AsyncMock()),
                 'database.models': SimpleNamespace(AuditEvent=SimpleNamespace)}
         with patch.dict(sys.modules,deps):
             spec = importlib.util.spec_from_file_location('checkout',Path(__file__).with_name('checkout_status.py'))

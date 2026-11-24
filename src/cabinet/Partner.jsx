@@ -52,8 +52,16 @@ export default function Partner() {
   const link = s.partner_code ? `${window.location.origin}/partner/${encodeURIComponent(s.partner_code)}` : '';
   const botLink = config?.bot_username && s.partner_code ? `https://t.me/${config.bot_username}?start=partner_${s.partner_code}` : '';
   const c = conditions.data;
-  const balance = Number(s.partner_balance || 0);
-  const reloadMoney = () => { summary.reload(true); finance.reload(true); };
+  const balance = Number(transfer.data?.balance_rub ?? s.partner_balance ?? 0);
+  const reloadMoney = result => {
+    if (Number.isFinite(result?.balance_rub)) {
+      transfer.setData(current => current && ({ ...current, balance_rub: result.balance_rub }));
+      summary.setData(current => ({ ...current, partner_balance: result.balance_rub }));
+    }
+    summary.reload(true);
+    finance.reload(true);
+    transfer.reload(true);
+  };
 
   return <>
     <PageHead title="Партнёрская программа" subtitle="Приглашайте людей по своей ссылке и получайте процент с каждой их оплаты." />

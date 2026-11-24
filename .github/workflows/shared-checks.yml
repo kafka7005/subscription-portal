@@ -25,6 +25,6 @@ jobs:
           set -eu
           mod=bot-module/portal_custom_api
           python -m compileall -q "$mod"
-          for test in "$mod/test_log_privacy.py" "$mod/accounts/test_pkce_store.py" "$mod/accounts/test_web_actions.py" "$mod/payments/test_manual_autopay.py" "$mod/payments/test_checkout_status.py" "$mod/support/test_support_tools.py"; do
+          for test in "$mod/test_site_activity.py" "$mod/test_log_privacy.py" "$mod/accounts/test_pkce_store.py" "$mod/accounts/test_web_actions.py" "$mod/payments/test_manual_autopay.py" "$mod/payments/test_checkout_status.py" "$mod/support/test_support_tools.py"; do
             python -m unittest discover -s "$(dirname "$test")" -p "$(basename "$test")"
           done

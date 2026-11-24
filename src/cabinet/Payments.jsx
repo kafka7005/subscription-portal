@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { useDocumentTitle, useLoad } from '../lib/hooks.js';
-import { dateTime, money, paymentStatusLabel, paymentTone, rub } from '../lib/format.js';
+import { dateTime, paymentHistoryRows, money, paymentStatusLabel, paymentTone, rub } from '../lib/format.js';
 import { Badge, Button, Card, Empty, Input, Loadable, Modal, Spinner, ErrorBox, PageHead, Table, useToast } from '../ui/index.jsx';
 import { FeeLine, PaymentPicker, returnUrls, usePaymentChoice } from './PaymentPicker.jsx';
 import PaymentConsents, { usePaymentConsents } from './PaymentConsents.jsx';
@@ -92,7 +92,10 @@ export default function Payments() {
   const { summary } = useOutletContext();
   const [balanceOpen, setBalanceOpen] = useState(false);
   const [autopayOpen, setAutopayOpen] = useState(false);
-  const state = useLoad((signal) => api.get('/auth/me/payments', { limit: 100 }, { signal }), []);
+  const state = useLoad(async signal => {
+    const data = await api.get('/auth/me/payments', { limit: 100 }, { signal });
+    return paymentHistoryRows(data?.payments || []);
+  }, []);
   const topUp = Boolean(config?.features?.balance_enabled);
   return <>
     <PageHead title="Платежи" subtitle="Баланс и история оплат. Если оплата прошла, а подписка не появилась — напишите в поддержку с датой и суммой."
@@ -100,11 +103,11 @@ export default function Payments() {
     <div className={`payments-layout ${topUp ? 'grid grid-main' : ''}`}>
       <Card title="История" className="payments-history" actions={<Button size="sm" variant="secondary" icon="wallet" onClick={() => setBalanceOpen(true)}>Почему изменился баланс?</Button>}>
         <Loadable state={state}>{(data) => <Table
-          rows={data?.payments || []}
+          rows={data || []}
           rowKey={(p) => p.id}
           empty={<Empty icon="card" title="Платежей пока нет" text="Здесь появятся ваши оплаты." />}
           columns={[
-            { key: 'created_at', title: 'Дата', className: 'nowrap', render: (p) => dateTime(p.created_at) },
+            { key: 'created_at', title: 'Дата (местное время)', className: 'nowrap', render: (p) => dateTime(p.createdAt) },
             { key: 'purpose', title: 'Назначение', className: 'cell-primary', render: (p) => <div className="cell-main"><strong>{PURPOSE[p.purpose] || p.purpose || 'Оплата'}</strong><span>{p.provider || ''}</span></div> },
             { key: 'status', title: 'Статус', render: (p) => <Badge tone={paymentTone(p.status)}>{paymentStatusLabel[String(p.status).toLowerCase()] || p.status}</Badge> },
             { key: 'amount', title: 'Сумма', className: 'num', render: (p) => <strong>{money(p.amount, p.currency)}</strong> },

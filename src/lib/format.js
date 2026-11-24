@@ -42,6 +42,15 @@ export function paymentTimeMs(value) {
   return toDate(value, '+03:00')?.getTime() ?? NaN;
 }
 
+// The account history merges payment rows (Moscow) with gift and spend events (UTC).
+export function paymentHistoryRows(items) {
+  return items.map(item => {
+    const event = item.provider === 'gift' || item.provider === 'spend';
+    const ms = event ? toDate(item.created_at)?.getTime() : paymentTimeMs(item.created_at);
+    return { ...item, createdAt: Number.isFinite(ms) ? new Date(ms) : null };
+  }).sort((a, b) => (b.createdAt?.getTime() ?? -Infinity) - (a.createdAt?.getTime() ?? -Infinity));
+}
+
 const moscowClock = new Intl.DateTimeFormat('ru-RU', {
   timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric',
   hour: '2-digit', minute: '2-digit', hourCycle: 'h23',

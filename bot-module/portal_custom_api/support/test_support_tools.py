@@ -15,6 +15,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import Boolean,Column,DateTime,Integer,String,Text,create_engine
 from sqlalchemy.orm import declarative_base,Session
+from sqlalchemy.dialects.postgresql import JSONB
 
 def stub(name,**values):
     parts=name.split('.')
@@ -119,14 +120,33 @@ class ReminderTests(unittest.IsolatedAsyncioTestCase):
         self.ticket=Ticket(id='ticket',status='open')
         self.last=Message(id='last-client',author='client',created_at=datetime.now(UTC)-timedelta(minutes=60))
         self.session=SimpleNamespace(execute=AsyncMock(return_value=SimpleNamespace(all=lambda:[(self.ticket,self.last.created_at)])),scalars=AsyncMock(return_value=SimpleNamespace(all=lambda:[1])),refresh=AsyncMock(),scalar=AsyncMock(return_value=self.last),commit=AsyncMock())
+        tables = declarative_base()
+        class Notification(tables):
+            __tablename__='notifications'
+            id=Column(String,primary_key=True)
+            user_id=Column(Integer)
+            created_at=Column(DateTime(timezone=True))
+            data=Column(JSONB)
+        self.saved=False
+        stub('logger',logger=SimpleNamespace(info=lambda *a:None, warning=lambda *a:None))
         @asynccontextmanager
-        async def maker():yield self.session
+        async def maker():
+            async def check(query, *args):
+                return True if args else ('existing' if self.saved else None)
+            async def commit():self.saved=True
+            yield self.session if not getattr(self,'scanning',False) else SimpleNamespace(scalar=check,commit=commit)
+        outer_execute=self.session.execute
+        async def scan(*args):
+            self.scanning=True
+            return await outer_execute(*args)
+        self.session.execute=AsyncMock(side_effect=scan)
+        self.notification=Notification
         self.setting=AsyncMock(return_value={'enabled':True,'wait_minutes':30,'repeat_minutes':120})
         self.notify=AsyncMock()
         stub('core.settings.modes_config',MODES_CONFIG={'SUPPORT_TICKETS_ENABLED':True})
         stub('database',async_session_maker=maker)
         stub('database.settings',get_setting=self.setting)
-        stub('database.models',Ticket=Ticket,TicketMessage=Message,Identity=Identity,User=User,Admin=Admin)
+        stub('database.models',Ticket=Ticket,TicketMessage=Message,Identity=Identity,User=User,Admin=Admin,WebNotification=self.notification)
         stub('database.web_notifications',notify_web=self.notify)
         stub('database.access.resolution',UserId=int)
         stub('core.redis_cache',_get_redis=AsyncMock(return_value=self.redis))
@@ -142,7 +162,19 @@ class ReminderTests(unittest.IsolatedAsyncioTestCase):
         self.notify.assert_awaited_once();self.assertEqual(self.notify.call_args.kwargs['user_ref'],1)
         self.assertEqual(self.notify.call_args.kwargs['data']['href'],'/admin/tickets/ticket')
         self.redis.items.pop('portal:support:reminders:scan')
+        self.scanning=False
         await reminders.scan_once();self.notify.assert_awaited_once()
+
+    async def test_uncreated_reminder_retries_next_scan(self):
+        self.notify.return_value=None
+        await reminders.scan_once()
+        self.assertFalse(self.saved)
+        self.redis.items.pop('portal:support:reminders:scan')
+        self.scanning=False
+        self.notify.return_value=object()
+        await reminders.scan_once()
+        self.assertTrue(self.saved)
+        self.assertEqual(self.notify.await_count,2)
 
     async def test_answered_ticket_is_skipped_after_final_recheck(self):
         self.last.author='agent'

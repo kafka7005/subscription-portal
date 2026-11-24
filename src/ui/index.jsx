@@ -85,6 +85,7 @@ export function ErrorBox({ error, onRetry }) {
   if (!error) return null;
   return <div className="error-box" role="alert">
     <span>{error.message || String(error)}</span>
+    {error.incident && <CopyField label="Код ошибки" value={error.incident} />}
     {onRetry && <Button variant="ghost" size="sm" icon="refresh" onClick={() => onRetry()}>Повторить</Button>}
   </div>;
 }
@@ -208,7 +209,9 @@ export function UiProvider({ children }) {
     setToasts((list) => [...list, { id, message, tone }]);
     setTimeout(() => setToasts((list) => list.filter((t) => t.id !== id)), tone === 'danger' ? 6000 : 3500);
   }, []);
-  toast.error = (error) => toast(error?.message || String(error), 'danger');
+  toast.error = (error) => toast(error?.incident
+    ? <>{error.message}<CopyField label="Код ошибки" value={error.incident}/></>
+    : error?.message || String(error), 'danger');
 
   const confirm = useCallback((options) => new Promise((resolve) => {
     setConfirmState({ ...options, resolve });

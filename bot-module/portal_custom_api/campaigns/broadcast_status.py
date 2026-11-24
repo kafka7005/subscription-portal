@@ -1,7 +1,7 @@
 """Expose the native scheduled sender's progress without changing bot files."""
 from contextvars import ContextVar
 from functools import wraps
-from time import monotonic
+from time import monotonic, time
 
 from fastapi import APIRouter, Depends
 from api.depends import verify_identity_admin, get_session
@@ -48,7 +48,11 @@ def install_tracking():
     async def publish(state, force=False):
         if force or monotonic() - state["last"] >= 1:
             state["last"] = monotonic()
-            await cache_set(state["key"], state["counts"], 86400 * 7)
+            saved = await cache_set(state["key"], {**state["counts"], "updated_at": int(time())}, 86400 * 7)
+            if not saved and not state.get("cache_failed"):
+                from logger import logger
+                logger.warning("[Site:Broadcast] progress storage unavailable")
+            state["cache_failed"] = not saved
 
     class TrackedService(service):
         async def broadcast(self, messages, **kwargs):

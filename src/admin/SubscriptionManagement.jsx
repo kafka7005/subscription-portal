@@ -74,7 +74,7 @@ function ReissueForm({ data, sub, path, finish }) {
     try {
       const result = await api.post(path + (rotate ? '/rotate-link' : '/rebuild'),
         {revision:data.link_revision, ...(rotate ? {} : {cluster, node:targets.data?.select_node ? selectedNode : undefined})});
-      if (rotate && !result.notified) toast.error(new Error('Ссылка заменена. Доставить её в Telegram не удалось.'));
+      if (rotate && !result.notified) toast.error(new Error('Ссылка заменена. Отправка в Telegram не подтверждена.'));
       else toast(rotate ? 'Новая ссылка отправлена в Telegram' : 'Подписка перевыпущена');
       finish();
       if (!rotate && result.client_id !== sub.client_id) navigate(result.client_id ? '/admin/subscriptions/'+encodeURIComponent(result.client_id) : '/admin/subscriptions', {replace:true});
@@ -82,6 +82,15 @@ function ReissueForm({ data, sub, path, finish }) {
   };
   return <div className="stack"><Select label="Действие" value={mode} onChange={e => setMode(e.target.value)}
     options={[{value:'full',label:'Полный перевыпуск'},{value:'link',label:'Сменить ссылку и уведомить клиента'}]} />
+    {rotate && <Button variant="ghost" busy={busy} onClick={async () => {
+      if (!await confirm({title:'Отправить текущую ссылку в Telegram?', confirmText:'Отправить'})) return;
+      setBusy(true);
+      try {
+        const result = await api.post(path+'/resend-link', {revision:data.link_revision});
+        if (result.notified) toast('Telegram принял сообщение с текущей ссылкой');
+        else toast.error(new Error('Отправить ссылку не удалось.'));
+      } catch (err) { toast.error(err); } finally {setBusy(false);}
+    }}>Повторить только уведомление</Button>}
     {rotate ? <p className="muted">Срок и лимиты сохранятся. Клиенту потребуется добавить новую ссылку в приложение.</p>
       : <Loadable state={targets}>{() => <div className="stack">
         <Select label="Кластер" value={cluster} onChange={e => {setPicked(e.target.value);setNode('');}} options={clusters.map(value => ({value,label:value}))} />

@@ -1,0 +1,30 @@
+name: Site and module checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: npm ci
+      - run: node --test $(find src -name '*.test.js' -print)
+      - run: npm run build
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: pip install loguru==0.7.3 fastapi==0.128.7 sqlalchemy==2.0.38
+      - name: Module tests with isolated fixtures
+        run: |
+          set -eu
+          mod=bot-module/portal_custom_api
+          python -m compileall -q "$mod"
+          for test in "$mod/test_log_privacy.py" "$mod/accounts/test_pkce_store.py" "$mod/accounts/test_web_actions.py" "$mod/payments/test_manual_autopay.py" "$mod/payments/test_checkout_status.py" "$mod/support/test_support_tools.py"; do
+            python -m unittest discover -s "$(dirname "$test")" -p "$(basename "$test")"
+          done

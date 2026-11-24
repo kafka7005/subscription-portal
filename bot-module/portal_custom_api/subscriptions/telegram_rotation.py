@@ -1,7 +1,9 @@
 """Bind the subscription for the native Telegram link-replacement callback."""
-from contextvars import ContextVar
+from contextvars import ContextVar, copy_context
+from functools import wraps
 
 from .rotation import revoke_current_profile
+from .rotation_trace import operation, stage
 
 
 _callback_scope = ContextVar('subscription_rotation_scope', default=None)
@@ -12,12 +14,13 @@ async def rotation_scope(handler, event, data):
         return await handler(event, data)
     from middlewares.session import operation_session
 
-    async with operation_session(data['session']) as session:
-        token = _callback_scope.set((session, data['admin_user_ref']))
-        try:
-            return await handler(event, {**data, 'session': session})
-        finally:
-            _callback_scope.reset(token)
+    with operation('telegram'):
+        async with operation_session(data['session']) as session:
+            token = _callback_scope.set((session, data['admin_user_ref']))
+            try:
+                return await handler(event, {**data, 'session': session})
+            finally:
+                _callback_scope.reset(token)
 
 
 class BoundClient:
@@ -51,12 +54,33 @@ class LifecyclePanel:
         return BoundClient(client, *scope) if scope is not None else client
 
 
+def observe_write(write):
+    @wraps(write)
+    async def wrapped(session, *args, **kwargs):
+        saved = await write(session, *args, **kwargs)
+        if _callback_scope.get() is not None:
+            if not saved:
+                stage('link_missing')
+                raise RuntimeError('Запись подписки не найдена')
+            from sqlalchemy import event
+            # The native handler sends its notice before the outer commit.
+            ctx = copy_context()
+            event.listen(session.sync_session, 'after_commit',
+                         lambda _: ctx.run(stage, 'link_committed'), once=True)
+            stage('link_written')
+        return saved
+    return wrapped
+
+
 def install():
     from handlers.admin.users.users_keys import lifecycle
     from logger import logger
 
     if isinstance(lifecycle.remnawave_panel, LifecyclePanel):
         return
+    from database import keys
+    lifecycle.update_key_subscription_links = observe_write(lifecycle.update_key_subscription_links)
+    keys.update_key_email_and_link = observe_write(keys.update_key_email_and_link)
     lifecycle.router.callback_query.middleware(rotation_scope)
     lifecycle.remnawave_panel = LifecyclePanel(lifecycle.remnawave_panel)
     logger.info("[Subscriptions] Telegram link rotation binding ready")

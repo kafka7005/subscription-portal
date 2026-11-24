@@ -6,7 +6,7 @@ import { useAuth } from '../lib/auth.jsx';
 import { useDebounced, useDocumentTitle, useLoad } from '../lib/hooks.js';
 import { date, days, devices as devicesText, rub } from '../lib/format.js';
 import { cleanName, loadLandingGroup, siteTariffs, usePublicTariffs } from '../lib/tariffs.js';
-import { Button, ErrorBox, Icon, Input, PageHead, Spinner, useToast } from '../ui/index.jsx';
+import { Button, ErrorBox, Icon, Input, PageHead, Spinner, useConfirm, useToast } from '../ui/index.jsx';
 import { PaymentPicker, returnUrls, usePaymentChoice } from './PaymentPicker.jsx';
 import PaymentConsents, { usePaymentConsents } from './PaymentConsents.jsx';
 import { DeviceStepper, Line, PlanPicker, Step, Summary } from './checkout.jsx';
@@ -23,7 +23,8 @@ function Checkout({ renewId }) {
   useDocumentTitle(renewId ? 'Продление' : 'Покупка');
   const navigate = useNavigate();
   const toast = useToast();
-  const { config } = useAuth();
+  const confirm = useConfirm();
+  const { config, me } = useAuth();
   const tariffsState = usePublicTariffs();
   const fromLanding = !renewId && params.get('source') === 'landing';
   const landing = useLoad(signal => fromLanding ? loadLandingGroup(signal) : null, [fromLanding]);
@@ -51,6 +52,26 @@ function Checkout({ renewId }) {
   const [previewError, setPreviewError] = useState(null);
   const [retry, setRetry] = useState(0);
   const [paying, setPaying] = useState(false);
+  const storageKey = me?.id ? 'checkout-attempt:'+me.id+':'+(renewId || 'purchase') : null;
+  const [pending, setPending] = useState(null);
+  const [status, setStatus] = useState('');
+  const [retryReference, setRetryReference] = useState(null);
+  const [manualReview,setManualReview] = useState(false);
+  useEffect(() => {
+    try {
+      const stored = storageKey ? localStorage.getItem(storageKey) : null;
+      setPending(stored);
+      setRetryReference(null);
+      setStatus('');
+    } catch { /* storage disabled */ }
+  }, [storageKey]);
+  function remember(id) {
+    setPending(id);
+    try {
+      if (storageKey && id) localStorage.setItem(storageKey,id);
+      else if (storageKey) localStorage.removeItem(storageKey);
+    } catch { /* in-memory state remains available */ }
+  }
 
   const wantedId = params.get('tariff') ?? renewKey.data?.tariff_id;
   const tariff = tariffs.find(t => t.id === Number(wantedId)) ?? (renewId || fromLanding ? null : tariffs[0]);
@@ -116,23 +137,64 @@ function Checkout({ renewId }) {
   const externalMayKeepExpiry = sw && toPay > 0 && newExpiry < Number(renewKey.data?.expiry_time);
 
   const pay = async () => {
-    if (!consent.ready || stale || paying) return;
+    if (!consent.ready || stale || paying || (pending && retryReference !== pending) || !storageKey) return;
+    // Another tab may have submitted since this checkout opened.
+    try {
+      const other = localStorage.getItem(storageKey);
+      if (other && other !== retryReference) { setPending(other); return; }
+    } catch { /* storage disabled */ }
+    const reference = retryReference || crypto.randomUUID();
+    setRetryReference(null);
+    remember(reference);
     setPaying(true);
     try {
-      const res = await api.post(path, {
+      const endpoint = '/portal/checkout/'+reference+(renewId ? '/renew/'+encodeURIComponent(renewId) : '/purchase');
+      const res = await api.post(endpoint, {
         ...body, ...consent.payload, provider_id: toPay ? choice.provider : undefined, accepted_gross_amount: toPay ? choice.acceptedGross : undefined, ...returnUrls(),
       });
+      if (!res || typeof res !== 'object') throw new Error('Сервер не подтвердил результат операции');
+      if (res.receipt_state) { setPaying(false); return; }
+      if (typeof res.ok !== 'boolean') throw new Error('Неизвестный результат операции');
+      remember(null);
       if (res.payment_url) { window.location.assign(res.payment_url); return; }
       if (res.ok === false) throw new Error(res.message || 'Не удалось оформить');
       toast(res.message || (renewId ? 'Подписка продлена' : 'Подписка оформлена'));
       navigate('/cabinet', { replace: true });
     } catch (err) {
+      if ([401,403,404,409,422,429].includes(err.status)) remember(null);
       if (err.data?.detail?.code === 'single_subscription') setPreviewError(err);
       else toast.error(err);
       setPaying(false);
     }
   };
 
+  if (pending && !paying && retryReference !== pending) {
+    const messages = {unconfirmed:'Результат требует сверки. Сообщите поддержке номер операции.', processing:'Бот ещё не подтвердил результат. Сохраните номер операции для поддержки.',
+      payment_created:'Платёж создан. Подтверждение от кассы пока не получено.',
+      not_found:'Бот пока не получил запрос. Можно безопасно повторить с тем же номером.',
+      completed:'Операция выполнена.', paid:'Оплата подтверждена.', declined:'Операция отклонена.'};
+    const check = async () => {
+      try {
+        const result = await api.get('/portal/checkout/'+pending);
+        setStatus(result.state);
+        setManualReview(result.manual_review === true);
+        if (['paid','completed','declined'].includes(result.state)) {
+          toast(messages[result.state]); remember(null); navigate('/cabinet/payments');
+        }
+      } catch (err) { toast.error(err); }
+    };
+    return <><PageHead back="/cabinet" title="Проверка оплаты" subtitle={messages[status] || 'Сначала проверьте результат предыдущей попытки.'}/>
+      <p>Номер операции <code>{pending}</code></p>
+      <div className="row"><Button onClick={check}>Проверить статус</Button>
+      {status==='not_found' && <Button variant="secondary" onClick={() => { setRetryReference(pending); setStatus(''); }}>Вернуться к расчёту</Button>}
+      <Button variant="ghost" to="/cabinet/payments">История платежей</Button>
+      <Button variant="ghost" to="/cabinet/support">Поддержка</Button>
+      {manualReview && <Button variant="ghost" onClick={async () => {
+        if (await confirm({title:'Сверка с поддержкой завершена?', text:'Закройте проверку, только если поддержка подтвердила результат. Новая покупка оплачивается отдельно.',confirmText:'Закрыть проверку'})) {
+          remember(null); setStatus(''); setManualReview(false); navigate('/cabinet');
+        }
+      }}>Завершить после сверки</Button>}</div></>;
+  }
   if (!renewId && previewError?.data?.detail?.code === 'single_subscription') return <>
     <PageHead title="У вас уже есть подписка" subtitle="Откройте её в личном кабинете, чтобы посмотреть условия и продлить срок." />
     <div className="row"><Button to="/cabinet">Мои подписки</Button>

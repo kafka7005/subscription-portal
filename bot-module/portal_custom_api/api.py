@@ -356,4 +356,5 @@ def get_api_routers(version: int) -> list[APIRouter]:
     from .accounts.notification_preferences import install
     install()
     from .subscriptions.management import get_router as management_router
-    return [router, management_router('/api/portal'), subscription_router('/api/portal', version), bot_stats_router('/api/portal'), giveaways_router('/api/portal'), status_router, get_router(), get_admin_audit_router(), get_customer_tools_router(), get_admin_operations_router(), get_manual_autopay_router(), get_manual_autopay_admin_router(), get_canned_replies_router(), get_support_tools_router(), get_support_reminders_router()]
+    from .payments.checkout_status import get_router as checkout_router
+    return [router, checkout_router('/api/portal'), management_router('/api/portal'), subscription_router('/api/portal', version), bot_stats_router('/api/portal'), giveaways_router('/api/portal'), status_router, get_router(), get_admin_audit_router(), get_customer_tools_router(), get_admin_operations_router(), get_manual_autopay_router(), get_manual_autopay_admin_router(), get_canned_replies_router(), get_support_tools_router(), get_support_reminders_router()]

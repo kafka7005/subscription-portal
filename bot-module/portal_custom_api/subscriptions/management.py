@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from .rotation import rotate_link, notify_owner
+from .rotation_trace import operation, stage
 
 
 class Revision(BaseModel):
@@ -168,9 +169,22 @@ def get_router(prefix):
         key = await locked_key(session, target)
         check_revision(body.revision, link_revision(key))
         user_id = key.user_id
-        link = await rotate_link(session, key)
-        await session.commit()
-        delivered = await notify_owner(session, user_id, link)
-        return {'notified': delivered}
+        with operation('site'):
+            link = await rotate_link(session, key)
+            await session.commit()
+            stage('link_committed')
+            delivered = await notify_owner(session, user_id, link)
+            return {'notified': delivered}
+
+    @router.post('/{target}/resend-link')
+    async def resend(target: str, body: Revision, identity=Depends(verify_identity_admin), session=Depends(get_session)):
+        await require_admin_action(session, identity, PERM_KEY_REISSUE)
+        key = await locked_key(session, target)
+        check_revision(body.revision, link_revision(key))
+        link = key.remnawave_link or key.key
+        if not link:
+            raise HTTPException(409, 'У подписки нет действующей ссылки.')
+        with operation('site_resend'):
+            return {'notified': await notify_owner(session, key.user_id, link)}
 
     return router

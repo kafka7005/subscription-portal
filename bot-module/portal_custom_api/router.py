@@ -5,6 +5,10 @@ router = Router(name="portal_custom_api_module")
 async def on_startup(**kwargs):
     from .subscriptions.telegram_rotation import install as install_rotation
     install_rotation()
+    from bot import bot
+    from .subscriptions.rotation_trace import telegram_result
+    if telegram_result not in bot.session.middleware:
+        bot.session.middleware.register(telegram_result)
     from .subscriptions.single_subscription import install_completion_guard
     install_completion_guard()
     from .campaigns.broadcast_status import install_tracking

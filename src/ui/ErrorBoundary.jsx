@@ -1,4 +1,6 @@
 import { Component } from 'react';
+import { reportIncident } from '../lib/incident.js';
+import { CopyField } from './index.jsx';
 
 // Чанк старого релиза не найден (вкладка открыта до выкладки) — новая версия уже на сервере.
 const STALE_RE = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError/i;
@@ -35,9 +37,9 @@ export default class ErrorBoundary extends Component {
     if (prev.resetKey !== this.props.resetKey && this.state.error) this.setState({ error: null });
   }
 
-  componentDidCatch(error, info) {
+  componentDidCatch(error) {
     if (reloadForStaleChunk(error)) return;
-    console.error('[portal] Ошибка интерфейса', error, info?.componentStack);
+    this.setState({incident:reportIncident('render',location.pathname,0)});
   }
 
   render() {
@@ -50,7 +52,7 @@ export default class ErrorBoundary extends Component {
     return <div className="crash" role="alert">
       <strong>Что-то пошло не так</strong>
       <p>Эта страница не смогла открыться. Обновите её — если ошибка повторится, напишите в поддержку.</p>
-      <code>{String(this.state.error?.message || this.state.error).slice(0, 200)}</code>
+      {this.state.incident && <CopyField label="Код ошибки" value={this.state.incident} />}
       <div className="row">
         <button type="button" className="btn btn-primary btn-sm" onClick={() => window.location.reload()}>Обновить</button>
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => window.history.back()}>Назад</button>

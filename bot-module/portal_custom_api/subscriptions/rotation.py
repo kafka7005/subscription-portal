@@ -1,5 +1,6 @@
 """Rotate subscription credentials using the same panel operations as the Telegram editor."""
 from html import escape
+from .rotation_trace import stage, telegram_failure
 
 from fastapi import HTTPException
 
@@ -14,7 +15,9 @@ async def revoke_current_profile(api, key):
         raise HTTPException(409, 'Не удалось подтвердить владельца подписки в панели.')
     if str(panel_id) != str(key.client_id) and (not saved_link or profile.get('subscriptionUrl') != saved_link):
         raise HTTPException(409, 'Ссылка в панели отличается от сохранённой. Проверьте подписку.')
-    return await api.revoke_user_subscription(panel_id, username=key.email)
+    result = await api.revoke_user_subscription(panel_id, username=key.email)
+    stage("panel_confirmed" if (result or {}).get("subscriptionUrl") else "panel_unconfirmed")
+    return result
 
 
 async def rotate_link(session, key):
@@ -89,6 +92,7 @@ async def notify_owner(session, user_id, link):
     try:
         chat = await chat_id_for_user(session, user_id)
         if chat is None:
+            stage('telegram_no_chat')
             return False
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text='📱 Мои подписки', callback_data='view_keys')],
@@ -101,6 +105,8 @@ async def notify_owner(session, user_id, link):
             "<i>Старая ссылка больше не работает.</i>"
         )
         await bot.send_message(chat_id=chat, parse_mode='HTML', reply_markup=keyboard, text=text)
+        stage('telegram_accepted')
         return True
-    except Exception:
+    except Exception as exc:
+        stage(telegram_failure(exc))
         return False

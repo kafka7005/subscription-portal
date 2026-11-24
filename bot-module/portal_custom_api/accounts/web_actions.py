@@ -25,12 +25,54 @@ def transfer_options():
     }
 
 
+async def completed_transfer(session, owner, operation):
+    from database.models import AuditEvent
+    from sqlalchemy import select
+
+    return await session.scalar(select(AuditEvent.metadata_).where(
+        AuditEvent.event_type == 'partner_transfer_completed',
+        AuditEvent.entity_id == str(owner), AuditEvent.request_id == str(operation)
+    ).limit(1))
+
+
+def record_transfer(session, owner, operation, amount):
+    from database.models import AuditEvent
+
+    session.add(AuditEvent(event_type='partner_transfer_completed', channel='api',
+        entity_type='user', entity_id=str(owner), request_id=str(operation),
+        path_or_handler='partner:transfer', result='success', metadata_={'amount': str(amount)}))
+
+
+def confirmed(amount):
+    return {'ok': True, 'amount_rub': float(amount), 'message': 'Средства переведены на баланс'}
+
+
 def get_router():
     router = APIRouter(prefix="/api/portal", tags=["Portal site actions"])
 
     @router.get("/partner-transfer/options")
     async def options(identity=Depends(verify_identity_token)):
         return transfer_options()
+
+    @router.get("/partner-transfer/{operation}")
+    async def transfer_status(operation: UUID, request: Request, identity=Depends(verify_identity_token),
+                              session: AsyncSession = Depends(get_session)):
+        from api.v2.routes.partners import _resolve_partner_user
+        owner, _ = await _resolve_partner_user(session, request, identity)
+        saved = await completed_transfer(session, owner, operation)
+        if saved:
+            return {'state':'done', **confirmed(saved['amount'])}
+        from core.redis_cache import _get_redis
+        redis = await _get_redis()
+        if redis is None:
+            return {'state':'unconfirmed'}
+        raw = await redis.get(f'portal:partner-transfer:{owner}:{operation}')
+        if raw is None:
+            return {'state':'not_found'}
+        prior = json.loads(raw)
+        if prior.get('state') == 'done':
+            return {'state':'done', **prior['result']}
+        return {'state':'unconfirmed'}
 
     @router.post("/partner-transfer")
     async def transfer(body: TransferBody, request: Request,
@@ -47,6 +89,11 @@ def get_router():
             raise HTTPException(403, "Перевод на баланс отключён в настройках бота")
         await enforce_rate_limit(request, session, bucket="portal_partner_transfer", max_per_window=10, window_sec=60)
         uid, _ = await _resolve_partner_user(session, request, identity)
+        saved = await completed_transfer(session, uid, body.request_id)
+        if saved is not None:
+            if Decimal(saved['amount']) != body.amount_rub:
+                raise HTTPException(409, "Номер операции уже использован для другой суммы")
+            return confirmed(saved['amount'])
         redis = await _get_redis()
         if redis is None:
             raise HTTPException(503, "Защита платежей недоступна. Попробуйте позже")
@@ -72,11 +119,13 @@ def get_router():
                 raise HTTPException(400, "Доступен только перевод всего партнёрского баланса")
             if amount > balance or amount < Decimal(str(cfg["min_amount_rub"])):
                 raise HTTPException(400, "Сумма превышает баланс или ниже допустимого минимума")
+            # The native service commits this receipt with the two balance changes.
+            record_transfer(session, uid, body.request_id, amount)
             started = True
             # Locks the same user, debits partner balance, credits main balance,
             # records approved payout, commits and invalidates the bot cache.
             await move_partner_to_main(session, int(profile["tg_id"]), float(amount))
-            result = {"ok": True, "amount_rub": float(amount), "message": "Средства переведены на баланс"}
+            result = confirmed(amount)
             await redis.set(receipt, json.dumps({"state": "done", "amount": str(amount), "result": result}), ex=604800)
             return result
         except (HTTPException, ValueError) as exc:

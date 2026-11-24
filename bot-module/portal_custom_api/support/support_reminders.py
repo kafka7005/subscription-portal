@@ -1,6 +1,7 @@
 """Opt-in staff web/push reminders; no customer messages or native file changes."""
 import asyncio
 import json
+from hashlib import sha256
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 
@@ -26,14 +27,40 @@ def waiting_query(Ticket,Message,cutoff):
     return select(Ticket,client.label('waiting_since')).where(Ticket.status.in_(['open','pending']),client.is_not(None),client<=cutoff,or_(agent.is_(None),client>agent)).order_by(client).limit(200)
 
 
+async def deliver_reminder(make_session, uid, ticket_id, message_id, minutes, interval):
+    from database.models import WebNotification
+    from database.web_notifications import notify_web
+    from database.access.resolution import UserId
+    from sqlalchemy import text
+    from logger import logger
+
+    reference = sha256(f'{ticket_id}:{message_id}:{uid}'.encode()).hexdigest()
+    async with make_session() as session:
+        lock = await session.scalar(text("SELECT pg_try_advisory_xact_lock(hashtextextended(:ref, 0))"), {'ref': reference})
+        if not lock:
+            return
+        since = datetime.now(UTC) - timedelta(minutes=interval)
+        prior = await session.scalar(select(WebNotification.id).where(
+            WebNotification.user_id == int(uid), WebNotification.created_at >= since,
+            WebNotification.data['reminder_ref'].astext == reference).limit(1))
+        if prior is not None:
+            return
+        notification = await notify_web(session, user_ref=UserId(uid), type='system',
+            title='Обращение ждёт ответа', message=f'Обращение #{ticket_id[:8]} ожидает ответа {minutes} мин.',
+            data={'href':f'/admin/tickets/{ticket_id}', 'reminder_ref':reference})
+        if notification is None:
+            logger.warning('[Site:Support] reminder skipped')
+            return
+        await session.commit()
+        logger.info('[Site:Support] reminder created')
+
+
 async def scan_once():
     from core.settings.modes_config import MODES_CONFIG
     if not MODES_CONFIG.get('SUPPORT_TICKETS_ENABLED',False):return
     from database import async_session_maker
     from database.settings import get_setting
     from database.models import Ticket,TicketMessage,Identity,User,Admin
-    from database.web_notifications import notify_web
-    from database.access.resolution import UserId
     from core.redis_cache import _get_redis
     async with async_session_maker() as session:
         cfg=Config(**(await get_setting(session,KEY,{}) or {}))
@@ -54,10 +81,11 @@ async def scan_once():
             if not last or last.author!='client' or last.created_at>cutoff:continue
             minutes=max(cfg.wait_minutes,int((datetime.now(UTC)-last.created_at).total_seconds()/60))
             for uid in recipients:
-                claim=f'portal:support:reminder:{ticket.id}:{last.id}:{uid}'
-                if not await redis.set(claim,'1',nx=True,ex=cfg.repeat_minutes*60):continue
-                await notify_web(session,user_ref=UserId(uid),type='system',title='Обращение ждёт ответа',
-                    message=f'Обращение #{ticket.id[:8]} ожидает ответа {minutes} мин.',data={'href':f'/admin/tickets/{ticket.id}'})
+                try:
+                    await deliver_reminder(async_session_maker, uid, ticket.id, last.id, minutes, cfg.repeat_minutes)
+                except Exception as exc:
+                    from logger import logger
+                    logger.warning('[Site:Support] reminder failed: {}', type(exc).__name__)
         await session.commit()
 
 

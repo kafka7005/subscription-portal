@@ -52,6 +52,8 @@ class TransferTests(unittest.IsolatedAsyncioTestCase):
         self.profile = AsyncMock(return_value={'tg_id': 42, 'partner_balance': 100})
         self.cfg = {'enabled': True, 'custom_amount_enabled': True, 'min_amount_rub': 0}
         patches = [
+            patch.object(module, 'completed_transfer', AsyncMock(return_value=None)),
+            patch.object(module, 'record_transfer'),
             patch.object(module, 'transfer_options', return_value=self.cfg),
             patch('api.v2.routes.partners._resolve_partner_user', AsyncMock(return_value=(7, 42))),
             patch('core.redis_cache._get_redis', AsyncMock(return_value=self.redis)),
@@ -94,6 +96,11 @@ class TransferTests(unittest.IsolatedAsyncioTestCase):
         self.cfg['custom_amount_enabled'] = False
         with self.assertRaises(HTTPException): await self.call()
         self.move.assert_not_awaited()
+
+    async def test_committed_receipt_survives_cache_failure(self):
+        with patch.object(module, 'completed_transfer', AsyncMock(return_value={'amount':'25.50'})):
+            self.assertTrue((await self.call())['ok'])
+            self.move.assert_not_awaited()
 
     def test_invalid_amounts(self):
         for value in ('0', '-1', 'NaN', 'Infinity', '0.001'):

@@ -2,6 +2,8 @@
 // Сессия хранится в HttpOnly-cookie `auth_token`, поэтому все запросы идут
 // на тот же домен (/api проксируется на бота) с credentials: 'include'.
 
+import { reportIncident } from './incident.js';
+
 export class ApiError extends Error {
   constructor(status, message, data) {
     super(message);
@@ -48,15 +50,25 @@ export async function request(method, path, { query, body, signal, raw } = {}) {
     response = await fetch(buildUrl(path, query), init);
   } catch (error) {
     if (error.name === 'AbortError') throw error;
-    throw new ApiError(0, 'Нет соединения с сервером');
+    const failure = new ApiError(0, 'Нет соединения с сервером');
+    failure.incident = reportIncident('request',path,0);
+    throw failure;
   }
   if (raw) return response;
-  const text = await response.text();
+  let text;
+  try { text = await response.text(); } catch (error) {
+    if (error.name === 'AbortError') throw error;
+    const failure = new ApiError(0, 'Ответ сервера получен не полностью');
+    failure.incident = reportIncident('request',path,0,response.headers.get('X-Request-Id'));
+    throw failure;
+  }
   let data = null;
   if (text) { try { data = JSON.parse(text); } catch { data = text; } }
   if (!response.ok) {
     if (response.status === 401 && unauthorizedHandler) unauthorizedHandler();
-    throw new ApiError(response.status, detailMessage(data, response.status), data);
+    const failure = new ApiError(response.status, response.status >= 500 ? 'Сервер временно недоступен' : detailMessage(data, response.status), data);
+    if (response.status >= 500) failure.incident = reportIncident('request',path,response.status,response.headers.get('X-Request-Id'));
+    throw failure;
   }
   return data;
 }

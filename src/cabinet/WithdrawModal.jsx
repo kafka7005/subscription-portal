@@ -1,12 +1,23 @@
 import { useState } from 'react';
 import { api } from '../lib/api.js';
+import { useAuth } from '../lib/auth.jsx';
 import { rub } from '../lib/format.js';
 import { Button, ErrorBox, Input, Modal, Select, Spinner, useToast } from '../ui/index.jsx';
 
 export default function WithdrawModal({ balance, conditions, transfer, method, onMethodSaved, onDone, onClose }) {
   const [destination, setDestination] = useState(null);
   const [amount, setAmount] = useState(String(balance));
-  const [requestId] = useState(() => crypto.randomUUID());
+  const {me} = useAuth();
+  const storageKey = 'partner-transfer:'+me.id;
+  const [saved] = useState(() => { try {return localStorage.getItem(storageKey);} catch {return null;} });
+  const [uncertain,setUncertain] = useState(Boolean(saved));
+  const [requestId] = useState(() => saved || crypto.randomUUID());
+  function remember(active) {
+    try {
+      if (active) localStorage.setItem(storageKey,requestId);
+      else localStorage.removeItem(storageKey);
+    } catch { /* The current dialog still retains the reference. */ }
+  }
   const [busy, setBusy] = useState(false);
   const [methodKey, setMethodKey] = useState(method.data?.method || method.data?.methods?.[0]?.key || '');
   const [requisites, setRequisites] = useState('');
@@ -30,20 +41,34 @@ export default function WithdrawModal({ balance, conditions, transfer, method, o
   };
   const submit = async (e) => {
     e.preventDefault();
-    if (busy || !available || !Number.isFinite(value) || value <= 0 || value < minimum || value > balance) return;
+    if (uncertain || busy || !available || !Number.isFinite(value) || value <= 0 || value < minimum || value > balance) return;
     setBusy(true);
     try {
+      if (internal) remember(true);
       const result = internal
         ? await api.post('/portal/partner-transfer', { amount_rub: value, request_id: requestId })
         : await api.post('/partners/payouts/me', { amount_rub: value });
+      if (internal) remember(false);
       toast(result.message || 'Заявка отправлена'); onDone(); onClose();
-    } catch (err) { toast.error(err); onDone(); } finally { setBusy(false); }
+    } catch (err) {
+      if (internal && (!err.status || err.status >= 500 || err.status === 409)) setUncertain(true);
+      else if (internal) remember(false);
+      toast.error(err); onDone();
+    } finally { setBusy(false); }
   };
 
   return <Modal open onClose={() => { if (!busy) onClose(); }} title={!destination ? 'Куда вывести средства?' : needsRequisites ? 'Реквизиты для вывода' : 'Сумма вывода'} size="sm">
     <div className="stack">
       <p className="muted">Партнёрский баланс: {rub(balance)}</p>
-      {!destination ? <>
+      {uncertain ? <><p>Результат перевода требует проверки.</p><Button busy={busy} onClick={async () => {
+        setBusy(true);
+        try {
+          const result = await api.get('/portal/partner-transfer/'+requestId);
+          if (result.state === 'done') { remember(false); toast(result.message); onDone(); onClose(); }
+          else if (result.state === 'not_found') { setUncertain(false); setDestination('balance'); toast('Операция не зарегистрирована. Номер для повтора сохранён.'); }
+          else toast('Подтверждение пока не найдено. Проверьте историю баланса.');
+        } catch (err) { toast.error(err); } finally { setBusy(false); }
+      }}>Проверить статус</Button></> : !destination ? <>
         {(transfer.loading || conditions.loading || method.loading) && <Spinner />}
         {transfer.data?.enabled && <button type="button" className="withdraw-choice" onClick={() => setDestination('balance')}>
           <strong>На баланс бота</strong><span>Для оплаты подписок{transfer.data.min_amount_rub > 0 ? ` · от ${rub(transfer.data.min_amount_rub)}` : ''}</span>

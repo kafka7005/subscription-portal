@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node --test src/landing/lib/pricing.test.js src/lib/paymentPolicy.test.js src/lib/country.test.js src/lib/chatDrafts.test.js src/lib/safeNext.test.js src/admin/botStatsReport.test.js src/lib/renewalSummary.test.js",
+    "test": "node --test src/landing/lib/pricing.test.js src/lib/paymentPolicy.test.js src/lib/country.test.js src/lib/chatDrafts.test.js src/lib/safeNext.test.js src/admin/botStatsReport.test.js src/lib/renewalSummary.test.js src/lib/incident.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

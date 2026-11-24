@@ -23,6 +23,10 @@ function recent(job) {
 
 function Job({job}) {
   const c=job.counts || {}, stats=job.stats?.stats || job.stats || {};
+  const final = terminal.has(job.status);
+  const stale = job.status === 'running' && (!c.updated_at || Date.now()/1000 - c.updated_at > 30);
+  const sent = final ? stats.success_count : c.tg_sent;
+  const failed = final ? stats.failed_count : c.tg_failed;
   const time=value=>new Date(value).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
   function channel(name,processed,total,details) {
     return <section className="broadcast-channel"><div className="row-between"><strong>{name}</strong><span>{total>0 && processed!=null ? Math.round(100*processed/total)+'%' : ''}</span></div>
@@ -32,8 +36,9 @@ function Job({job}) {
   return <article className="broadcast-job"><header className="row"><strong className="badge">{STATES[job.status] || job.status}</strong><small>{new Date(job.created_at).toLocaleString('ru-RU')}</small></header>
     <p>{job.text?.replace(/<[^>]+>/g,'').split('\n')[0].slice(0,100)}</p>
     {job.status==='scheduled' && <small>Ожидает запуска{job.scheduled_for && ' с '+time(job.scheduled_for)}.</small>}
-    {job.status==='running' && !Object.keys(c).length && <small>Бот начал обработку. Ожидаем первые счётчики.</small>}
-    {job.channel!=='site' && (c.tg_total!=null || stats.success_count!=null) && channel('Telegram',c.tg_processed,c.tg_total,`Успешно: ${c.tg_sent ?? stats.success_count ?? 0}. Ошибок: ${c.tg_failed ?? stats.failed_count ?? 0}.`)}
+    {stale && <small role="status">Прогресс временно недоступен. Рассылка может продолжаться.</small>}
+    {c.updated_at && <small>Последнее обновление в {time(c.updated_at*1000)}</small>}
+    {job.channel!=='site' && (c.tg_total!=null || stats.success_count!=null) && channel('Telegram',final ? null : c.tg_processed,final ? null : c.tg_total,`Успешно: ${sent ?? '—'}. Ошибок: ${failed ?? '—'}.`)}
     {job.channel!=='bot' && c.audience!=null && channel('Сайт',c.site_processed,c.audience,`Создано уведомлений: ${c.site_created ?? 0}.`)}
     {job.error_text && <p role="alert">{job.error_text}</p>}
   </article>;

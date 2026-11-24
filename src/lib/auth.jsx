@@ -3,7 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { api, onUnauthorized } from './api.js';
 import { syncPushSubscription } from './push.js';
 import { readTelegramInitData, setupTelegramSdk } from './telegramWebApp.js';
-import { FullPageSpinner } from '../ui/index.jsx';
+import { FullPageSpinner, useToast } from '../ui/index.jsx';
 
 const AuthContext = createContext(null);
 
@@ -11,6 +11,7 @@ const AuthContext = createContext(null);
 export const STAFF_ROLES = ['admin', 'moderator'];
 
 export function AuthProvider({ children }) {
+  const toast = useToast();
   const [me, setMe] = useState(undefined); // undefined — ещё грузим, null — гость
   const [config, setConfig] = useState(null);
 
@@ -59,9 +60,16 @@ export function AuthProvider({ children }) {
   }, [refresh, refreshConfig]);
 
   const logout = useCallback(async () => {
-    try { await api.post('/auth/logout'); } catch { /* cookie всё равно очищаем на клиенте */ }
-    setMe(null);
-  }, []);
+    try {
+      const result = await api.post('/auth/logout');
+      if (result?.ok !== true) throw new Error('Сервер не подтвердил выход');
+      setMe(null);
+      return true;
+    } catch {
+      toast('Не удалось подтвердить выход. Проверьте соединение и нажмите «Выйти» ещё раз.', 'danger');
+      return false;
+    }
+  }, [toast]);
 
   const value = useMemo(() => ({
     me,

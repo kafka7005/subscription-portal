@@ -60,7 +60,7 @@ export default function AppAuthorize() {
     window.location.assign(withQuery(req.redirectUri, { error: 'access_denied', state: req.state }));
   };
   const switchAccount = async () => {
-    await logout();
+    if (!(await logout())) return;
     navigate(`/login?next=${encodeURIComponent(`/app/authorize?${params.toString()}`)}`, { replace: true });
   };
 

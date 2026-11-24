@@ -203,8 +203,13 @@ async def _issue(session: AsyncSession, *, identity, client_id: str, device: Dev
     }
 
 
+def private_response(response: Response) -> None:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+
+
 def get_api_routers(version: int) -> list[APIRouter]:
-    router = APIRouter(prefix="/api/app", tags=["App auth"])
+    router = APIRouter(prefix="/api/app", tags=["App auth"], dependencies=[Depends(private_response)])
 
     @router.get("/clients")
     async def clients() -> dict:

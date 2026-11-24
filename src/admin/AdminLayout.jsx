@@ -65,7 +65,7 @@ export default function AdminLayout() {
     {isAdmin && <UpdateNotice />}
     <Button variant="ghost" size="sm" icon="download" href="/admin-install.html">На экран «Домой»</Button>
     <Button variant="secondary" size="sm" icon="home" to="/cabinet">Мой кабинет</Button>
-    <Button variant="ghost" size="sm" icon="logout" onClick={async () => { await logout(); navigate('/', { replace: true }); }}>Выйти</Button>
+    <Button variant="ghost" size="sm" icon="logout" onClick={async () => { if (await logout()) navigate('/', { replace: true }); }}>Выйти</Button>
   </>;
   const roleBadge = isAdmin ? 'Админ' : me?.role === 'moderator' ? 'Модер' : 'Staff';
   const themeButton = <button type="button" className="top-icon admin-theme-toggle" onClick={theme.toggle}

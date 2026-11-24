@@ -93,7 +93,7 @@ export default function CabinetLayout() {
     setEmailAsk(false);
   };
 
-  const onLogout = async () => { await logout(); navigate('/', { replace: true }); };
+  const onLogout = async () => { if (await logout()) navigate('/', { replace: true }); };
 
   return <div className={`app theme-cabinet ${theme.light ? 'is-light' : ''}`}>
     <div className="app-shell">

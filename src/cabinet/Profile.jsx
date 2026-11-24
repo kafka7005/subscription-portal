@@ -57,7 +57,7 @@ export default function Profile() {
   const features = config?.features || {};
   const s = summary.data;
 
-  const onLogout = async () => { await logout(); navigate('/', { replace: true }); };
+  const onLogout = async () => { if (await logout()) navigate('/', { replace: true }); };
   const linkTelegram = () => startTelegramAuth({ mode: 'link', next: '/cabinet/profile' }).catch((err) => toast.error(err));
 
   return <>

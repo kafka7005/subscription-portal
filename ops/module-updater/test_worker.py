@@ -124,3 +124,7 @@ class ModuleUpdates(unittest.TestCase):
                 api.apply(body,request,None)
             self.assertEqual(duplicate.exception.status_code,409)
             self.assertEqual((self.base/'inbox/request').read_text(),body.revision)
+            worker.write_json(self.base/'status.json', dict(phase='recovery_failed', checked=0))
+            self.assertEqual(api.snapshot()['phase'],'recovery_failed')
+            worker.write_json(self.base/'status.json', dict(phase='available', checked=0))
+            self.assertEqual(api.snapshot()['phase'],'offline')

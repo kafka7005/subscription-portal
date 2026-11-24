@@ -24,7 +24,7 @@ class UpdateRequest(BaseModel):
 def snapshot():
     try:
         data = json.loads((BASE/'status.json').read_text())
-        if time.time() - data['checked'] > 420:
+        if data['phase'] != 'recovery_failed' and time.time() - data['checked'] > 420:
             data['phase'] = 'offline'
         elif data['phase'] not in ('installing','recovery_failed') and (BASE/'inbox'/'request').exists():
             data['phase'] = 'queued'

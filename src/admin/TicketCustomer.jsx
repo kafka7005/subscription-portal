@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { useLoad } from '../lib/hooks.js';
-import { copyText, date, dateTime, money, paymentStatusLabel, paymentTone, ticketStatusLabel, rub, subscriptionStatus, userName } from '../lib/format.js';
+import { copyText, date, dateTime, paymentDateTime, money, paymentStatusLabel, paymentTone, ticketStatusLabel, rub, subscriptionStatus, userName } from '../lib/format.js';
 import { Badge, Button, Card, CopyField, Icon, ErrorBox, IconButton, KeyValue, Modal, Pagination, Spinner, useToast } from '../ui/index.jsx';
 
 function CopyValue({ label, value }) {
@@ -69,7 +69,7 @@ function Payments({ rows, ticket, user, clientLink, version }) {
   const first = ref == null ? sorted[0] : match || extra.data;
   const others = sorted.filter(p => String(p.id) !== String(first?.id));
   const line = p => <li key={p.id}><div><strong>{money(p.amount,p.currency)}</strong><Badge tone={paymentTone(p.status)}>{paymentStatusLabel[p.status] || p.status}</Badge></div>
-    <small>{dateTime(p.created_at)} · {p.payment_system || '—'}</small></li>;
+    <small>{paymentDateTime(p.created_at)} · {p.payment_system || '—'}</small></li>;
   return <section className="customer-fold">
     <Disclosure open={expanded} onOpenChange={setExpanded} label={<>
       <Icon name="wallet" size={17} /><span>{ref == null ? 'Платежи' : 'Платёж по обращению'}</span>

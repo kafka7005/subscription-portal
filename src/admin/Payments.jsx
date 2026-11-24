@@ -4,7 +4,7 @@ import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import PaymentHistory from './PaymentHistory.jsx';
 import { useDebounced, useDocumentTitle, useLoad } from '../lib/hooks.js';
-import { dateTime, money, paymentStatusLabel, paymentTone, userName } from '../lib/format.js';
+import { paymentDateTime, money, paymentStatusLabel, paymentTone, userName } from '../lib/format.js';
 import { Badge, Button, Card, Loadable, PageHead, Pagination, SearchInput, Segmented, Table } from '../ui/index.jsx';
 
 const LIMIT = 50;
@@ -37,7 +37,7 @@ export default function Payments() {
       <Loadable state={state}>{(data) => <>
         <Table rows={data?.items || []} rowKey={(p) => p.id} onRowClick={(p) => p.user_id && navigate(`/admin/users/${p.user_id}`)}
           columns={[
-            { key: 'date', title: 'Дата', className: 'nowrap', render: (p) => dateTime(p.created_at) },
+            { key: 'date', title: 'Дата', className: 'nowrap', render: (p) => paymentDateTime(p.created_at) },
             { key: 'who', title: 'Клиент', className: 'cell-primary', render: (p) => <div className="cell-main"><strong>{userName(p)}</strong><span>{p.tg_id ? `TG ${p.tg_id}` : `#${p.user_id ?? '—'}`}</span></div> },
             { key: 'system', title: 'Касса', render: (p) => p.payment_system },
             { key: 'status', title: 'Статус', render: (p) => <Badge tone={paymentTone(p.status)}>{paymentStatusLabel[p.status] || p.status}</Badge> },

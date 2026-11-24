@@ -10,13 +10,13 @@ export function money(value, currency = 'RUB') {
   return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(Number(value || 0))} ${currency}`;
 }
 
-function toDate(value) {
+function toDate(value, naiveOffset = 'Z') {
   if (value === null || value === undefined || value === '') return null;
   if (value instanceof Date) return value;
   if (typeof value === 'number') return new Date(value < 1e12 ? value * 1000 : value);
-  // Бот отдаёт naive ISO в UTC.
-  const text = String(value);
-  return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(text) ? text : `${text}Z`);
+  const text = String(value).trim().replace(/^(\d{4}-\d\d-\d\d) (\d\d:)/, '$1T$2').replace(/(\.\d{3})\d+/, '$1');
+  if (/^\d{4}-\d\d-\d\d$/.test(text)) return new Date(`${text}T00:00:00${naiveOffset}`);
+  return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(text) ? text : `${text}${naiveOffset}`);
 }
 
 export function date(value) {
@@ -35,6 +35,29 @@ export function dateTime(value) {
   const d = toDate(value);
   if (!d || Number.isNaN(d.getTime())) return '—';
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+export function paymentTimeMs(value) {
+  // The payments API returns Moscow wall time without an offset.
+  return toDate(value, '+03:00')?.getTime() ?? NaN;
+}
+
+const moscowClock = new Intl.DateTimeFormat('ru-RU', {
+  timeZone: 'Europe/Moscow', day: '2-digit', month: '2-digit', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+function displayMoscow(ms) {
+  return Number.isFinite(ms) ? `${moscowClock.format(ms)} МСК` : '—';
+}
+
+export function paymentDateTime(value) {
+  return displayMoscow(paymentTimeMs(value));
+}
+
+export function refundDateTime(value) {
+  // Refund records use UTC for timestamps without an offset.
+  return displayMoscow(toDate(value)?.getTime());
 }
 
 export function relative(value) {

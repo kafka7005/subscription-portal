@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useDocumentTitle, useLoad } from '../lib/hooks.js';
-import { date, dateTime, money, paymentStatusLabel, paymentTone, rub, subscriptionStatus, userName } from '../lib/format.js';
+import { date, paymentDateTime, money, paymentStatusLabel, paymentTone, rub, subscriptionStatus, userName } from '../lib/format.js';
 import { cleanName } from '../lib/tariffs.js';
 import { useAuth } from '../lib/auth.jsx';
 import PartnerAdmin from './PartnerAdmin.jsx';
@@ -168,7 +168,7 @@ export default function UserCard() {
         <Card title="Платежи" actions={<Button size="sm" variant="ghost" to={`/admin/payments?q=${u.tg_id || u.username || ''}`}>Все</Button>}>
           <Table rows={d.payments} rowKey={(p) => p.id} empty={<Empty icon="card" title="Платежей нет" />}
             columns={[
-              { key: 'date', title: 'Дата', className: 'nowrap', render: (p) => dateTime(p.created_at) },
+              { key: 'date', title: 'Дата', className: 'nowrap', render: (p) => paymentDateTime(p.created_at) },
               { key: 'system', title: 'Касса', render: (p) => p.payment_system },
               { key: 'status', title: 'Статус', render: (p) => <Badge tone={paymentTone(p.status)}>{paymentStatusLabel[p.status] || p.status}</Badge> },
               { key: 'amount', title: 'Сумма', className: 'num', render: (p) => <strong>{money(p.amount, p.currency)}</strong> },

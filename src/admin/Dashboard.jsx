@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { useDocumentTitle, useLoad } from '../lib/hooks.js';
-import { dateTime, money, paymentStatusLabel, paymentTone, rub, userName } from '../lib/format.js';
+import { dateTime, paymentDateTime, paymentTimeMs, money, paymentStatusLabel, paymentTone, rub, userName } from '../lib/format.js';
 import { Badge, Card, Loadable, PageHead, Stat, Table } from '../ui/index.jsx';
 
 const soft = (p) => p.catch(() => null);
@@ -11,7 +11,7 @@ const soft = (p) => p.catch(() => null);
 function revenue(items) {
   const since = Date.now() - 30 * 86400000;
   const ok = (items || []).filter((p) => p.status === 'success' && p.payment_system !== 'admin' && p.amount > 0
-    && new Date(`${p.created_at}Z`).getTime() >= since && (!p.currency || p.currency === 'RUB'));
+    && paymentTimeMs(p.created_at) >= since && (!p.currency || p.currency === 'RUB'));
   return { sum: ok.reduce((s, p) => s + p.amount, 0), count: ok.length };
 }
 
@@ -49,7 +49,7 @@ export default function Dashboard() {
         <Loadable state={payments}>{(data) => <Table rows={(data?.items || []).slice(0, 8)} rowKey={(p) => p.id}
           onRowClick={(p) => p.user_id && navigate(`/admin/users/${p.user_id}`)}
           columns={[
-            { key: 'who', title: 'Клиент', className: 'cell-primary', render: (p) => <div className="cell-main"><strong>{userName(p)}</strong><span>{dateTime(p.created_at)}</span></div> },
+            { key: 'who', title: 'Клиент', className: 'cell-primary', render: (p) => <div className="cell-main"><strong>{userName(p)}</strong><span>{paymentDateTime(p.created_at)}</span></div> },
             { key: 'system', title: 'Касса', render: (p) => p.payment_system },
             { key: 'status', title: 'Статус', render: (p) => <Badge tone={paymentTone(p.status)}>{paymentStatusLabel[p.status] || p.status}</Badge> },
             { key: 'amount', title: 'Сумма', className: 'num', render: (p) => <strong>{money(p.amount, p.currency)}</strong> },

@@ -26,6 +26,8 @@ class ReviewTests(unittest.TestCase):
         conn.connection.driver_connection.create_function("to_regclass", 1, lambda _: 1)
 
         class Session:
+            async def commit(self):
+                pass  # Each fixture request owns a SQLite savepoint.
             async def scalar(self, sql):
                 return conn.scalar(sql)
             async def execute(self, sql, params=None):
@@ -74,6 +76,11 @@ class ReviewTests(unittest.TestCase):
         target = importlib.util.module_from_spec(spec)
         with patch.dict(sys.modules, modules):
             spec.loader.exec_module(target)
+        self.notices = AsyncMock(return_value=["staff"])
+        self.push = AsyncMock()
+        self.target = target
+        target.record_review_notices = self.notices
+        target.push_review_notices = self.push
         conn.execute(text(target.CREATE))
         conn.execute(text(target.CREATE_REWARDS))
         app = FastAPI()
@@ -149,6 +156,29 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(decide(submit(), "approved").json()["awarded_rub"], 0)
         self.credit.assert_awaited_once()
         self.assertEqual(self.credit.await_args.args[1:], (101, 30))
+
+    def test_new_review_alert_once(self):
+        self.assertEqual(self.request("PUT", "/mine", "first", json={**self.body, "consent": False}).status_code, 422)
+        self.notices.assert_not_awaited()
+        item = self.request("PUT", "/mine", "first", json=self.body).json()["review"]
+        self.assertEqual(self.request("PUT", "/mine", "first", json=self.body).status_code, 409)
+        self.request("PUT", "/admin/" + item["id"], "staff", json={"revision":item["revision"], "status":"hidden"}).raise_for_status()
+        self.notices.assert_awaited_once()
+        self.push.assert_awaited_once_with(["staff"], item["id"])
+
+    def test_review_alert_admin_roles(self):
+        import asyncio
+        role = AsyncMock()
+        dependencies = ModuleType("api.depends")
+        dependencies.resolve_identity_role = role
+        with patch.dict(sys.modules, {"api.depends": dependencies}):
+            for enabled, name, allowed in [(False, "user", False), (True, "designer", False),
+                                           (True, "moderator", False), (True, "admin", True)]:
+                role.return_value = name
+                actor = SimpleNamespace(is_admin=enabled)
+                self.assertEqual(asyncio.run(self.target.can_review(None, actor)), allowed)
+            self.permission.side_effect = HTTPException(403)
+            self.assertFalse(asyncio.run(self.target.can_review(None, actor)))
 
     def test_invalid_fields(self):
         for fields in [dict(consent=False), dict(body="     "), dict(author=""), dict(rating=0),

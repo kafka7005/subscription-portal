@@ -2,7 +2,7 @@
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, StrictBool, StringConstraints
 from sqlalchemy import text
 
@@ -122,6 +122,66 @@ async def award_review(session, actor, owner, review_id):
     return amount
 
 
+REVIEW_QUEUE = "/admin/site?tab=reviews"
+REVIEW_TITLE = "Новый отзыв"
+REVIEW_MESSAGE = "Отзыв ждёт модерации."
+
+
+async def can_review(session, identity):
+    from api.depends import resolve_identity_role
+
+    if not identity or not identity.is_admin or await resolve_identity_role(session, identity) != "admin":
+        return False
+    try:
+        await require_admin_action(session, identity)
+    except HTTPException as exc:
+        if exc.status_code == 403:
+            return False
+        raise
+    return True
+
+
+async def record_review_notices(session):
+    from database.models import Identity, User
+    from database.web_notifications import create_notification
+    from sqlalchemy import select
+
+    recipients = []
+    admins = (await session.scalars(select(Identity).where(Identity.is_admin.is_(True)))).all()
+    for admin in admins:
+        if not await can_review(session, admin):
+            continue
+        uid = await session.scalar(select(User.id).where(User.identity_id == admin.id).order_by(User.id).limit(1))
+        if uid is None:
+            uid = await ensure_billing_user_for_identity(session, admin)
+        await create_notification(session, user_id=int(uid), identity_id=admin.id, type="system",
+                                  title=REVIEW_TITLE, message=REVIEW_MESSAGE, data={"href": REVIEW_QUEUE})
+        recipients.append(admin.id)
+    return recipients
+
+
+async def push_review_notices(recipients, review_id):
+    from database import async_session_maker
+    from database.web_notifications import get_push_subscriptions_by_identity
+    from services.web_push import push_enabled, send_push_to_many
+    from logger import logger
+
+    if not push_enabled():
+        return
+    for recipient in recipients:
+        try:
+            async with async_session_maker() as session:
+                if not await can_review(session, await get_identity_by_id(session, recipient)):
+                    continue
+                subs = await get_push_subscriptions_by_identity(session, recipient)
+                endpoints = [{"endpoint": sub.endpoint, "keys": sub.keys_json} for sub in subs]
+            if endpoints:
+                await send_push_to_many(endpoints, REVIEW_TITLE, REVIEW_MESSAGE, REVIEW_QUEUE,
+                                        tag=f"review-{review_id}")
+        except Exception as exc:
+            logger.warning("[Site:Reviews] Push delivery failed: {}", type(exc).__name__)
+
+
 def get_router(prefix):
     router = APIRouter(prefix=prefix + "/reviews", tags=["Customer reviews"])
 
@@ -149,7 +209,7 @@ def get_router(prefix):
         return {**info, "review": dict(row) if row else None}
 
     @router.put("/mine")
-    async def submit(body: Submission, request: Request, identity=Depends(verify_identity_token),
+    async def submit(body: Submission, request: Request, background: BackgroundTasks, identity=Depends(verify_identity_token),
                      session=Depends(get_session)):
         if not body.consent:
             raise HTTPException(422, "Подтвердите согласие на публикацию.")
@@ -166,6 +226,11 @@ def get_router(prefix):
         """), values)).mappings().one_or_none()
         if row is None:
             raise HTTPException(409, "Вы уже отправили отзыв.")
+        recipients = await record_review_notices(session)
+        # Publish the review and inbox entries together before any device can follow the push.
+        await session.commit()
+        if recipients:
+            background.add_task(push_review_notices, recipients, values["id"])
         return {"review": dict(row)}
 
     @router.delete("/admin/{review_id}")

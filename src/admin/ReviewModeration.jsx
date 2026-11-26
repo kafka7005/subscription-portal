@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { api } from '../lib/api.js';
 import { useLoad } from '../lib/hooks.js';
 import { reviewApi, reviewStatus } from '../lib/reviews.js';
-import { Button, Card, ErrorBox, Segmented, Spinner, Toggle, useToast } from '../ui/index.jsx';
+import { Button, Card, ErrorBox, Segmented, Spinner, Toggle, useConfirm, useToast } from '../ui/index.jsx';
 
 function RewardEditor({ amount, busy, save }) {
   const [value, setValue] = useState(String(amount));
@@ -19,12 +19,18 @@ export default function ReviewModeration() {
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
+  const confirm = useConfirm();
   const { data, loading, error, reload } = useLoad(
     signal => api.get(reviewApi + '/admin', { status, offset: page * 20 }, { signal }), [status, page]);
-  async function change(path, payload, message) {
+  async function remove(item) {
+    const ok = await confirm({ title: 'Удалить отзыв навсегда?', text: 'Текст исчезнет с сайта и из очереди модерации. Вернуть его будет невозможно. Уже начисленная награда сохранится.', confirmText: 'Удалить навсегда', danger: true });
+    if (ok) await change(item.id, { revision: item.revision }, 'Отзыв удалён', true);
+  }
+  async function change(path, payload, message, deleting = false) {
     setBusy(true);
     try {
-      const result = await api.put(reviewApi + '/admin/' + path, payload);
+      const url = reviewApi + '/admin/' + path;
+      const result = deleting ? await api.del(url, { query: payload }) : await api.put(url, payload);
       toast(result?.awarded_rub ? message + ` · начислено ${result.awarded_rub} ₽` : message);
       if (!['visibility', 'reward'].includes(path) && data.items.length === 1 && page) setPage(page - 1);
       else await reload();
@@ -50,7 +56,8 @@ export default function ReviewModeration() {
       <div className="row">{['approved','hidden'].filter(s => s !== item.status).map(s =>
         <Button size="sm" key={s} disabled={busy} variant={s === 'approved' ? 'primary' : 'secondary'}
           onClick={() => change(item.id, { status: s, revision: item.revision }, s === 'approved' ? 'Отзыв одобрен' : 'Отзыв скрыт')}>
-          {s === 'approved' ? 'Одобрить' : 'Скрыть'}</Button>)}</div>
+          {s === 'approved' ? 'Одобрить' : 'Скрыть'}</Button>)}
+        {data.can_delete && <Button size="sm" variant="ghost" disabled={busy} onClick={() => remove(item)}>Удалить</Button>}</div>
     </article>) : <p className="muted">Здесь пока нет отзывов.</p>}
     {(page > 0 || data.has_more) && <div className="row"><Button variant="secondary" disabled={!page || busy || loading} onClick={() => setPage(page - 1)}>Назад</Button>
       <span>{page + 1}</span><Button variant="secondary" disabled={!data.has_more || busy || loading} onClick={() => setPage(page + 1)}>Далее</Button></div>}

@@ -61,8 +61,14 @@
   .lr-quotes blockquote { transition: none; transform: none; }
 }
 
+.account-column { display: grid; align-content: start; min-width: 0; gap: 14px; }
 .home-review-entry {
-  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px;
-  padding: 16px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface);
+  display: grid; justify-items: start; gap: 10px; padding: 18px 24px;
+  border-radius: 16px; color: var(--cab-ink); background: var(--cab-surface);
 }
-.home-review-entry small { display: block; margin-top: 4px; color: var(--muted); }
+.review-entry-heading { display: flex; align-items: center; gap: 10px; }
+.review-entry-icon {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--cab-soft); color: var(--cab-accent);
+}
+.home-review-entry small { color: var(--cab-muted); }

@@ -172,7 +172,6 @@ export default function Home() {
     <header className="cabinet-intro"><div><h1>Твой интернет.</h1><p>Всё под контролем.</p></div>
       {list.length > 0 && allowExtra && <Button variant="ghost" size="sm" icon="plus" to="/cabinet/buy">Ещё подписка</Button>}
     </header>
-    <CustomerReview key={me?.id} home owner={me?.id} active={active.length > 0} />
     {payment.notice && <div className="cabinet-status" role="status">
       {payment.notice} <Button size="sm" variant="ghost" onClick={payment.check}>Проверить</Button>
     </div>}
@@ -188,14 +187,17 @@ export default function Home() {
               {allowExtra && <Link className="subscriptions-add" to="/cabinet/buy"><Icon name="plus" size={17} />Ещё подписка</Link>}
             </>}
     </section>
-    <aside className="cabinet-account" aria-label="Аккаунт и бонусы">
-      <h2>Аккаунт</h2>
-      <div className="account-bindings">
-        <LinkChip icon={<TelegramIcon size={20} />} label="Telegram" ok={Boolean(me?.tg_id)} onClick={linkTelegram} />
-        <LinkChip icon={<Icon name="mail" size={20} />} label="Почта" ok={Boolean(me?.email && me.email_verified !== false)} onClick={() => setEmailOpen(true)} />
-      </div>
-      <DailyBonus onClaimed={() => summary.reload(true)} />
-      <Link className="account-profile" to="/cabinet/profile">Настройки аккаунта <Icon name="arrow" size={16} /></Link>
+    <aside className="account-column" aria-label="Аккаунт и отзывы">
+      <section className="cabinet-account" aria-label="Аккаунт и бонусы">
+        <h2>Аккаунт</h2>
+        <div className="account-bindings">
+          <LinkChip icon={<TelegramIcon size={20} />} label="Telegram" ok={Boolean(me?.tg_id)} onClick={linkTelegram} />
+          <LinkChip icon={<Icon name="mail" size={20} />} label="Почта" ok={Boolean(me?.email && me.email_verified !== false)} onClick={() => setEmailOpen(true)} />
+        </div>
+        <DailyBonus onClaimed={() => summary.reload(true)} />
+        <Link className="account-profile" to="/cabinet/profile">Настройки аккаунта <Icon name="arrow" size={16} /></Link>
+      </section>
+      <CustomerReview key={me?.id} home owner={me?.id} active={active.length > 0} />
     </aside>
     </div>
     <div className="cabinet-services">

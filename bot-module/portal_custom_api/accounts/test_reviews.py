@@ -32,7 +32,8 @@ class ReviewTests(unittest.TestCase):
                 return conn.execute(sql, params or {})
 
         async def session():
-            return Session()
+            with conn.begin_nested():
+                yield Session()
 
         async def user(request: Request):
             key = request.headers.get("Fixture-User")
@@ -52,20 +53,29 @@ class ReviewTests(unittest.TestCase):
         async def set_setting(session, key, value, description):
             settings[key] = value
 
+        self.credit = AsyncMock(return_value=42)
+        self.permission = AsyncMock()
         modules = {}
         for name, values in {
             "api.depends": dict(get_session=session, verify_identity_admin=admin, verify_identity_token=user),
+            "api.admin_permissions": dict(require_admin_action=self.permission),
+            "filters.permissions": dict(PERM_USER_BALANCE="balance"),
+            "database.identities": dict(ensure_billing_user_for_identity=AsyncMock(return_value=101),
+                                        get_identity_by_id=AsyncMock(return_value=SimpleNamespace(id="first"))),
+            "database.users": dict(update_balance=self.credit),
+            "review_tests.site_activity": dict(defer_account_balance=lambda session, uid: None),
             "api.ratelimit": dict(enforce_rate_limit=AsyncMock()),
             "database.settings": dict(get_setting=get_setting, set_setting=set_setting),
         }.items():
             module = ModuleType(name)
             module.__dict__.update(values)
             modules[name] = module
-        spec = importlib.util.spec_from_file_location("review_target", Path(__file__).with_name("reviews.py"))
+        spec = importlib.util.spec_from_file_location("review_tests.accounts.target", Path(__file__).with_name("reviews.py"))
         target = importlib.util.module_from_spec(spec)
         with patch.dict(sys.modules, modules):
             spec.loader.exec_module(target)
         conn.execute(text(target.CREATE))
+        conn.execute(text(target.CREATE_REWARDS))
         app = FastAPI()
         app.include_router(target.get_router("/test"))
         self.client = stack.enter_context(TestClient(app))
@@ -105,6 +115,40 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(hidden["status"], "hidden")
         self.request("DELETE", "/mine", "first", params={"revision":hidden["revision"]}).raise_for_status()
         self.assertEqual(self.request("GET", "/admin?status=hidden", "staff").json()["items"], [])
+
+    def test_reward_lifecycle(self):
+        def submit():
+            return self.request("PUT", "/mine", "first", json={**self.body, "rating":1}).json()["review"]
+
+        def decide(item, status):
+            return self.request("PUT", "/admin/" + item["id"], "staff",
+                                json={"revision":item["revision"], "status":status})
+
+        self.assertEqual(self.request("GET", "/mine", "first").json()["reward_rub"], 0)
+        for invalid in [-1, True, 2.5, 10001]:
+            self.assertEqual(self.request("PUT", "/admin/reward", "staff", json={"reward_rub":invalid}).status_code, 422)
+        self.assertEqual(self.request("PUT", "/admin/reward", "first", json={"reward_rub":30}).status_code, 403)
+        self.request("PUT", "/admin/reward", "staff", json={"reward_rub":30}).raise_for_status()
+        item = submit()
+        self.assertEqual(decide(item, "hidden").json()["awarded_rub"], 0)
+        item = self.request("GET", "/mine", "first").json()["review"]
+        self.permission.side_effect = HTTPException(403)
+        self.assertEqual(decide(item, "approved").status_code, 403)
+        self.credit.assert_not_awaited()
+        self.permission.side_effect = None
+        self.credit.return_value = None
+        self.assertEqual(decide(item, "approved").status_code, 409)
+        self.assertEqual(self.request("GET", "/mine", "first").json()["awarded_rub"], 0)
+        self.credit.reset_mock()
+        self.credit.return_value = 30
+        self.assertEqual(decide(item, "approved").json()["awarded_rub"], 30)
+        self.assertEqual(decide(item, "approved").status_code, 409)
+        mine = self.request("GET", "/mine", "first").json()
+        self.assertEqual(mine["awarded_rub"], 30)
+        self.request("DELETE", "/mine", "first", params={"revision":mine["review"]["revision"]}).raise_for_status()
+        self.assertEqual(decide(submit(), "approved").json()["awarded_rub"], 0)
+        self.credit.assert_awaited_once()
+        self.assertEqual(self.credit.await_args.args[1:], (101, 30))
 
     def test_invalid_fields(self):
         for fields in [dict(consent=False), dict(body="     "), dict(author=""), dict(rating=0),

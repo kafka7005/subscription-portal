@@ -1,3 +1,4 @@
+import ReviewModeration from './ReviewModeration.jsx';
 import SiteUpdates from './SiteUpdates.jsx';
 import ModuleUpdates from './ModuleUpdates.jsx';
 import { useEffect, useState } from 'react';
@@ -121,7 +122,7 @@ export default function SiteAdmin() {
 
   return <>
     <PageHead title="Сайт" subtitle="Технические работы, плашка и меню кабинета, FAQ, страница загрузки, документы." />
-    <Tabs value={tab} onChange={(v) => setParams({ tab: v })} tabs={[...(isAdmin ? [{ value: 'updates', label: 'Обновления' }] : []), { value: 'maintenance', label: 'Технические работы' }, { value: 'banner', label: 'Плашка' }, { value: 'status', label: 'Статус сервиса' }, { value: 'landing', label: 'Лендинг' }, { value: 'menu', label: 'Меню' }, { value: 'faq', label: 'FAQ' }, { value: 'downloads', label: 'Загрузка' }, { value: 'docs', label: 'Документы' }]} />
+    <Tabs value={tab} onChange={(v) => setParams({ tab: v })} tabs={[...(isAdmin ? [{ value: 'updates', label: 'Обновления' }] : []), { value: 'maintenance', label: 'Технические работы' }, { value: 'banner', label: 'Плашка' }, { value: 'status', label: 'Статус сервиса' }, { value: 'landing', label: 'Лендинг' }, { value: 'menu', label: 'Меню' }, ...(isAdmin ? [{ value: 'reviews', label: 'Отзывы' }] : []), { value: 'faq', label: 'FAQ' }, { value: 'downloads', label: 'Загрузка' }, { value: 'docs', label: 'Документы' }]} />
 
     {tab === 'updates' && isAdmin && <div className="stack"><SiteUpdates /><ModuleUpdates /></div>}
     {tab === 'maintenance' && <Card>
@@ -176,6 +177,7 @@ export default function SiteAdmin() {
 
     {tab === 'menu' && <MenuEditor site={site} busy={busy} onSave={(nav) => save({ ...site, nav }, nav.length ? 'Меню сохранено' : 'Вернули меню по умолчанию')} />}
 
+    {tab === 'reviews' && isAdmin && <ReviewModeration />}
     {tab === 'faq' && <FaqEditor />}
 
     {tab === 'downloads' && <DownloadsEditor site={site} busy={busy}

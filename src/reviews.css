@@ -1,0 +1,45 @@
+.landing-reviews { padding: 12px 0 48px; min-width: 0; }
+.lr-heading, .lr-controls, .lr-byline { display: flex; align-items: center; }
+.lr-heading { justify-content: space-between; gap: 14px; margin-bottom: 20px; }
+.landing-reviews .lr-heading h2 { margin: 0; color: var(--landing-ink); font-size: clamp(27px, 3vw, 40px); font-weight: 720; line-height: 1.12; letter-spacing: -.035em; }
+.lr-controls { gap: 6px; }
+.lr-controls button { width: 42px; height: 42px; border-radius: 50%; background: var(--landing-surface); color: var(--landing-ink); border: 1px solid var(--landing-line); cursor: pointer; font: 600 17px/1 sans-serif; }
+.lr-controls button:hover { border-color: var(--landing-lime); }
+.lr-feature { position: relative; isolation: isolate; overflow: hidden; padding: clamp(24px, 4vw, 56px); border-radius: 22px; background: #e8edd8; color: #21281c; }
+.lr-feature::after { content: '”'; position: absolute; z-index: -1; right: 2%; top: -.18em; font: 460px/.95 Georgia, serif; color: #d9e2c3; pointer-events: none; }
+.lr-quotes { display: grid; }
+.lr-quotes blockquote { grid-area: 1/1; margin: 0; max-width: 32ch; align-self: center; font-size: clamp(24px, 3vw, 43px); font-weight: 530; line-height: 1.18; letter-spacing: -.038em; overflow-wrap: anywhere; white-space: pre-line; opacity: 0; visibility: hidden; transform: translateY(5px); transition: opacity .32s ease, transform .32s ease; }
+.lr-quotes blockquote[data-current=true] { opacity: 1; transform: none; visibility: visible; }
+.lr-quotes blockquote[data-long=true] { max-width: 54ch; font-size: clamp(18px, 2vw, 28px); }
+.lr-byline { gap: 18px; margin-top: 24px; border-top: 1px solid #c4ceb4; padding-top: 14px; justify-content: space-between; }
+.lr-byline strong { overflow-wrap: anywhere; }
+.lr-byline span { color: #4a641f; white-space: nowrap; letter-spacing: 2px; }
+.lr-rail { margin-top: 12px; display: flex; overflow: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.lr-rail::-webkit-scrollbar { display: none; }
+.lr-group { display: flex; flex: none; gap: 10px; padding: 4px 10px 5px 0; }
+.lr-group button { display: grid; text-align: left; gap: 7px; padding: 15px 18px; border-radius: 14px; background: var(--landing-surface); color: var(--landing-ink); border: 1px solid var(--landing-line); font: inherit; width: clamp(220px, 30vw, 370px); cursor: pointer; }
+.lr-group button[aria-pressed=true] { border-color: #879e5b; }
+.lr-group strong, .lr-group span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lr-group strong { font-size: 14px; }
+.lr-group span { color: var(--landing-muted); font-size: 14px; }
+.review-rating { border: 0; padding: 0; margin: 0; }
+.review-rating legend { margin-bottom: 4px; }
+.review-rating label { position: relative; display: inline-grid; place-items: center; min-width: 40px; min-height: 40px; cursor: pointer; }
+.review-rating input { position: absolute; opacity: 0; }
+.review-rating span { font-size: 27px; opacity: .36; }
+.review-rating span[data-filled=true] { opacity: 1; color: var(--accent, currentColor); }
+.review-rating input:focus-visible + span { outline: 2px solid currentColor; outline-offset: 3px; }
+.review-consent { display: flex; align-items: baseline; gap: 9px; }
+.review-body { white-space: pre-line; overflow-wrap: anywhere; }
+.moderation-review { display: grid; gap: 12px; padding-block: 15px; border-top: 1px solid var(--line, #8885); overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .landing-reviews { padding-bottom: 32px; }
+  .lr-controls { gap: 3px; }
+  .lr-controls button { width: 34px; height: 36px; }
+  .lr-feature { padding: 24px 19px 17px; border-radius: 16px; }
+  .lr-feature::after { font-size: 235px; }
+  .lr-byline { margin-top: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lr-quotes blockquote { transition: none; transform: none; }
+}

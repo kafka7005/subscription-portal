@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Header from './components/Header.jsx';
 import Hero from './components/Hero.jsx';
+import LandingReviews from './components/LandingReviews.jsx';
 import Pricing from './components/Pricing.jsx';
 import SubscriptionFaq from './components/SubscriptionFaq.jsx';
 import Footer from './components/Footer.jsx';
@@ -86,6 +87,7 @@ export default function Landing() {
       <Hero copy={copy} width={width} onOpen={onOpen} />
       <div {...frameProps}>
         <Pricing copy={copy} locale={locale} layout={layout} onCheckout={onCheckout} />
+        <LandingReviews locale={locale} />
         <SubscriptionFaq copy={copy} />
       </div>
     </main>

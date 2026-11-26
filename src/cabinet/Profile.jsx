@@ -1,3 +1,4 @@
+import CustomerReview from './CustomerReview.jsx';
 import { useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { api } from '../lib/api.js';
@@ -93,6 +94,7 @@ export default function Profile() {
     </div>
     <div className="grid grid-2"><ThemeCard /><PushCard /></div>
     {giveawaysVisible && <Button variant="secondary" icon="gift" to="/cabinet/giveaways">Розыгрыши</Button>}
+    <CustomerReview />
     <NotificationPreferences />
     <SessionsCard />
     <Link to="/docs" className="profile-docs-link"><Icon name="file" size={15} />Правовые документы</Link>

@@ -155,29 +155,26 @@ def get_router(prefix):
             raise HTTPException(422, "Подтвердите согласие на публикацию.")
         await enforce_rate_limit(request, session, bucket="portal_review_submit", max_per_window=8, window_sec=60)
         await ensure_table(session)
-        values = dict(owner=str(identity.id), author=body.author, body=body.body,
+        if body.revision is not None:
+            raise HTTPException(409, "Отправленный отзыв нельзя редактировать.")
+        values = dict(id=str(uuid4()), owner=str(identity.id), author=body.author, body=body.body,
                       rating=body.rating, revision=str(uuid4()))
-        if body.revision is None:
-            values["id"] = str(uuid4())
-            statement = """INSERT INTO portal_customer_reviews (id, owner, author, body, rating, status, revision)
-                VALUES (:id, :owner, :author, :body, :rating, 'pending', :revision)
-                ON CONFLICT (owner) DO NOTHING"""
-        else:
-            values["previous"] = str(body.revision)
-            statement = """UPDATE portal_customer_reviews SET author=:author, body=:body, rating=:rating,
-                revision=:revision, status='pending', submitted_at=CURRENT_TIMESTAMP
-                WHERE owner=:owner AND revision=:previous"""
-        row = (await session.execute(text(f"{statement} RETURNING {FIELDS}"), values)).mappings().one_or_none()
+        row = (await session.execute(text(f"""
+            INSERT INTO portal_customer_reviews (id, owner, author, body, rating, status, revision)
+            VALUES (:id, :owner, :author, :body, :rating, 'pending', :revision)
+            ON CONFLICT (owner) DO NOTHING RETURNING {FIELDS}
+        """), values)).mappings().one_or_none()
         if row is None:
-            raise changed()
+            raise HTTPException(409, "Вы уже отправили отзыв.")
         return {"review": dict(row)}
 
-    @router.delete("/mine")
-    async def withdraw(revision: UUID, identity=Depends(verify_identity_token), session=Depends(get_session)):
+    @router.delete("/admin/{review_id}")
+    async def remove(review_id: UUID, revision: UUID, identity=Depends(verify_identity_admin),
+                     session=Depends(get_session)):
         if not await exists(session):
             raise changed()
-        result = await session.execute(text("DELETE FROM portal_customer_reviews WHERE owner=:owner AND revision=:rev"),
-                                       {"owner": str(identity.id), "rev": str(revision)})
+        result = await session.execute(text("DELETE FROM portal_customer_reviews WHERE id=:id AND revision=:rev"),
+                                       {"id": str(review_id), "rev": str(revision)})
         if not result.rowcount:
             raise changed()
         return {"ok": True}
@@ -192,7 +189,7 @@ def get_router(prefix):
                 ORDER BY submitted_at DESC, id LIMIT 21 OFFSET :offset
             """), {"status": status, "offset": offset})
             items = [dict(row) for row in rows.mappings()]
-        return {"enabled": await enabled(session), "reward_rub": await reward_amount(session), "items": items[:20], "has_more": len(items) > 20}
+        return {"enabled": await enabled(session), "can_delete": True, "reward_rub": await reward_amount(session), "items": items[:20], "has_more": len(items) > 20}
 
     @router.put("/admin/visibility")
     async def visibility(body: Visibility, identity=Depends(verify_identity_admin), session=Depends(get_session)):

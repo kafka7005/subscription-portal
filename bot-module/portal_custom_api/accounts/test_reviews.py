@@ -105,16 +105,16 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(self.request("GET", "/public").json()["items"], [])
         self.request("PUT", "/admin/visibility", "staff", json={"enabled":True}).raise_for_status()
         item = self.request("GET", "/mine", "first").json()["review"]
-        self.assertEqual(self.request("DELETE", "/mine", "second", params={"revision":item["revision"]}).status_code, 409)
-        self.request("PUT", "/mine", "first", json={**self.body, "body":"Revised words", "revision":item["revision"]}).raise_for_status()
-        self.assertEqual(self.request("PUT", admin_url, "staff", json=decision).status_code, 409)
+        rev = {"revision":item["revision"]}
+        self.assertEqual(self.request("DELETE", "/mine", "first", params=rev).status_code, 405)
+        self.assertEqual(self.request("PUT", "/mine", "first", json={**self.body, **rev}).status_code, 409)
+        self.assertEqual(self.request("DELETE", admin_url, "second", params=rev).status_code, 403)
+        self.assertEqual(self.request("DELETE", admin_url, "staff", params={"revision":decision["revision"]}).status_code, 409)
+        self.assertEqual(len(self.request("GET", "/public").json()["items"]), 1)
+        self.request("DELETE", admin_url, "staff", params=rev).raise_for_status()
         self.assertEqual(self.request("GET", "/public").json()["items"], [])
-        pending = self.request("GET", "/admin", "staff").json()["items"][0]
-        self.request("PUT", admin_url, "staff", json={"status":"hidden","revision":pending["revision"]}).raise_for_status()
-        hidden = self.request("GET", "/mine", "first").json()["review"]
-        self.assertEqual(hidden["status"], "hidden")
-        self.request("DELETE", "/mine", "first", params={"revision":hidden["revision"]}).raise_for_status()
-        self.assertEqual(self.request("GET", "/admin?status=hidden", "staff").json()["items"], [])
+        self.assertIsNone(self.request("GET", "/mine", "first").json()["review"])
+        self.assertEqual(self.request("GET", "/admin?status=approved", "staff").json()["items"], [])
 
     def test_reward_lifecycle(self):
         def submit():
@@ -145,7 +145,7 @@ class ReviewTests(unittest.TestCase):
         self.assertEqual(decide(item, "approved").status_code, 409)
         mine = self.request("GET", "/mine", "first").json()
         self.assertEqual(mine["awarded_rub"], 30)
-        self.request("DELETE", "/mine", "first", params={"revision":mine["review"]["revision"]}).raise_for_status()
+        self.request("DELETE", "/admin/" + item["id"], "staff", params={"revision":mine["review"]["revision"]}).raise_for_status()
         self.assertEqual(decide(submit(), "approved").json()["awarded_rub"], 0)
         self.credit.assert_awaited_once()
         self.assertEqual(self.credit.await_args.args[1:], (101, 30))

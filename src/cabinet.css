@@ -213,15 +213,26 @@ html.cabinet-graphite .theme-cabinet .cabinet-account h2 { font-size: 24px; lett
 
 
 /* Quieter services use content and separators, not a grid of identical icon tiles. */
-.cabinet-services { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px; padding: 26px 0; border-block: 1px solid var(--cab-line); }
-.cabinet-services > section { min-width: 0; }
+.cabinet-services { container: services / inline-size; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px; padding: 26px 0; border-block: 1px solid var(--cab-line); }
+.cabinet-services > section {
+  min-width: 0; display: grid;
+  grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px 18px;
+}
 .cabinet-services > section + section { padding-left: 24px; border-left: 1px solid var(--cab-line); }
-.service-label { display: block; font-size: 15px; }
-.service-value-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
-.service-value-row > strong { color: var(--cab-accent); font-size: 36px; letter-spacing: -.025em; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.cabinet-partner > .muted { display: block; margin-top: 8px; font-size: 12px; }
+.cabinet-services .service-copy { display: grid; gap: 8px; min-width: 0; }
+.cabinet-services .btn { justify-self: end; max-width: 100%; }
+.service-label { font-size: 15px; }
+.cabinet-partner strong { color: var(--cab-accent); font-size: 36px; letter-spacing: -.025em; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cabinet-partner .muted { font-size: 12px; }
 html.cabinet-graphite .theme-cabinet .cabinet-help h2 { font-size: 18px; }
-.cabinet-help p { font-size: 14px; max-width: 45ch; margin: 8px 0 14px !important; }
+.cabinet-help p { font-size: 14px; max-width: 45ch; margin: 0 !important; }
+@container services (max-width: 780px) {
+  .cabinet-services > section:not(:only-child) { grid-template-rows: 1fr auto; }
+  .cabinet-services > section:not(:only-child) > * { grid-column: 1 / -1; }
+}
+@container services (max-width: 350px) {
+  .cabinet-services .service-copy, .cabinet-services .btn { grid-column: 1 / -1; }
+}
 .cabinet-gift { display: flex; align-items: center; gap: 14px; min-height: 56px; color: var(--cab-ink); }
 .cabinet-gift > span { flex: 1; font-size: 15px; }
 .cabinet-gift small { display: block; margin-top: 3px; color: var(--cab-muted); font-size: 12px; }

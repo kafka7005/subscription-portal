@@ -201,11 +201,19 @@ export default function Home() {
     </aside>
     </div>
     <div className="cabinet-services">
-      {features.partner_enabled && <section className="cabinet-partner"><span className="service-label">Партнёрский баланс</span>
-        <div className="service-value-row"><strong>{s ? rub(s.partner_balance) : '—'}</strong><Button variant="ghost" size="sm" to="/cabinet/partner" iconRight="arrow">Пригласить друга</Button></div>
-        {s && <span className="muted">Приглашено {s.partner_referred_total} · оплатили {s.partner_referred_paid}</span>}
+      {features.partner_enabled && <section className="cabinet-partner">
+        <div className="service-copy">
+          <span className="service-label">Партнёрский баланс</span>
+          <strong>{s ? rub(s.partner_balance) : '—'}</strong>
+          {s && <span className="muted">Приглашено {s.partner_referred_total} · оплатили {s.partner_referred_paid}</span>}
+        </div>
+        <Button variant="ghost" size="sm" to="/cabinet/partner" iconRight="arrow">Пригласить друга</Button>
       </section>}
-      <section className="cabinet-help"><h2>Поможем с подключением</h2><p className="muted">Ответим на вопросы и поможем настроить доступ.</p>
+      <section className="cabinet-help">
+        <div className="service-copy">
+          <h2>Поможем с подключением</h2>
+          <p className="muted">Ответим на вопросы и поможем настроить доступ.</p>
+        </div>
       {features.support_tickets_enabled !== false
         ? <Button variant="ghost" size="sm" to="/cabinet/support" icon="chat">Открыть чат</Button>
         : <Button variant="ghost" size="sm" href={links.support} target="_blank" rel="noopener noreferrer" icon="chat">Поддержка в Telegram</Button>}

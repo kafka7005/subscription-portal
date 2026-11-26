@@ -3,6 +3,14 @@ import { api } from '../../lib/api.js';
 import { useLoad } from '../../lib/hooks.js';
 import { reviewApi } from '../../lib/reviews.js';
 
+function ControlIcon({ kind }) {
+  return <svg viewBox="0,0,24,24" width="20" height="20" aria-hidden="true" focusable="false">
+    {kind === 'play' ? <polygon fill="currentColor" stroke="currentColor" strokeLinejoin="round" points="7,4.5 19.5,12 7,19.5" />
+      : kind === 'pause' ? <g fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1.5"/><rect x="14" y="4" width="4" height="16" rx="1.5"/></g>
+      : <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d={kind === 'prev' ? 'M19,12 H5 M11,6 L5,12 L11,18' : 'M5,12 H19 M13,6 L19,12 L13,18'} />}
+  </svg>;
+}
+
 function ReviewShowcase({ items, en }) {
   const [current, setCurrent] = useState(0);
   const [paused, setPaused] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -54,10 +62,10 @@ function ReviewShowcase({ items, en }) {
 
   return <section className="landing-reviews" aria-labelledby="customer-reviews-title">
     <div className="lr-heading"><h2 id="customer-reviews-title">{en ? 'In their own words' : 'Слово пользователям'}</h2>
-      {many && <div className="lr-controls">
-        <button type="button" aria-label={en ? 'Previous review' : 'Предыдущий отзыв'} onClick={() => select(current - 1)}>←</button>
-        <button type="button" aria-label={paused ? (en ? 'Play' : 'Продолжить показ') : (en ? 'Pause' : 'Приостановить показ')} onClick={() => setPaused(!paused)}>{paused ? '▶' : 'Ⅱ'}</button>
-        <button type="button" aria-label={en ? 'Next review' : 'Следующий отзыв'} onClick={() => select(current + 1)}>→</button>
+      {many && <div className="lr-controls" role="group" aria-label={en ? 'Review controls' : 'Управление отзывами'}>
+        <button type="button" aria-label={en ? 'Previous review' : 'Предыдущий отзыв'} onClick={() => select(current - 1)}><ControlIcon kind="prev" /></button>
+        <button className="lr-playback" type="button" aria-label={paused ? (en ? 'Play' : 'Продолжить показ') : (en ? 'Pause' : 'Приостановить показ')} onClick={() => setPaused(p => !p)}><ControlIcon kind={paused ? 'play' : 'pause'} /></button>
+        <button type="button" aria-label={en ? 'Next review' : 'Следующий отзыв'} onClick={() => select(current + 1)}><ControlIcon kind="next" /></button>
       </div>}
     </div>
     <div onPointerEnter={e => { if (e.pointerType === 'mouse') setReading(true); }} onPointerLeave={() => setReading(false)}>

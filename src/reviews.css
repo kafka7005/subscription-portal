@@ -2,9 +2,27 @@
 .lr-heading, .lr-controls, .lr-byline { display: flex; align-items: center; }
 .lr-heading { justify-content: space-between; gap: 14px; margin-bottom: 20px; }
 .landing-reviews .lr-heading h2 { margin: 0; color: var(--landing-ink); font-size: clamp(27px, 3vw, 40px); font-weight: 720; line-height: 1.12; letter-spacing: -.035em; }
-.lr-controls { gap: 6px; }
-.lr-controls button { width: 42px; height: 42px; border-radius: 50%; background: var(--landing-surface); color: var(--landing-ink); border: 1px solid var(--landing-line); cursor: pointer; font: 600 17px/1 sans-serif; }
-.lr-controls button:hover { border-color: var(--landing-lime); }
+.lr-heading { flex-wrap: wrap; }
+.lr-controls {
+  flex: none; gap: 2px; padding: 3px; border: 1px solid var(--landing-line);
+  border-radius: 999px; background: var(--landing-surface); color: var(--landing-ink);
+}
+.lr-controls button {
+  display: grid; place-items: center; inline-size: 44px; block-size: 44px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer;
+  touch-action: manipulation; transition: background .18s ease, transform .18s ease;
+}
+.lr-controls .lr-playback { background: var(--landing-lime); color: #202718; }
+@media (hover: hover) {
+  .lr-controls button:hover { background: var(--landing-line); }
+  .lr-controls .lr-playback:hover { background: color-mix(in srgb, var(--landing-lime) 82%, white); }
+}
+.lr-controls button:active { transform: scale(.94); }
+.lr-controls button:focus-visible { outline: 2px solid var(--landing-ink); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) {
+  .lr-controls button { transition: none; }
+  .lr-controls button:active { transform: none; }
+}
 .lr-feature { position: relative; isolation: isolate; overflow: hidden; padding: clamp(24px, 4vw, 56px); border-radius: 22px; background: #e8edd8; color: #21281c; }
 .lr-feature::after { content: '”'; position: absolute; z-index: -1; right: 2%; top: -.18em; font: 460px/.95 Georgia, serif; color: #d9e2c3; pointer-events: none; }
 .lr-quotes { display: grid; }
@@ -34,8 +52,7 @@
 .moderation-review { display: grid; gap: 12px; padding-block: 15px; border-top: 1px solid var(--line, #8885); overflow-wrap: anywhere; }
 @media (max-width: 600px) {
   .landing-reviews { padding-bottom: 32px; }
-  .lr-controls { gap: 3px; }
-  .lr-controls button { width: 34px; height: 36px; }
+  .lr-heading { row-gap: 12px; }
   .lr-feature { padding: 24px 19px 17px; border-radius: 16px; }
   .lr-feature::after { font-size: 235px; }
   .lr-byline { margin-top: 17px; }
@@ -43,3 +60,9 @@
 @media (prefers-reduced-motion: reduce) {
   .lr-quotes blockquote { transition: none; transform: none; }
 }
+
+.home-review-entry {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px;
+  padding: 16px 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface);
+}
+.home-review-entry small { display: block; margin-top: 4px; color: var(--muted); }

@@ -5,6 +5,7 @@ import { pendingCheckout } from '../lib/checkoutReturn.js';
 import { readAfterDeletion } from '../lib/readAfterDeletion.js';
 import { Link, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import CustomerReview from './CustomerReview.jsx';
 import { useAuth } from '../lib/auth.jsx';
 import { useDocumentTitle, useLoad } from '../lib/hooks.js';
 import { date, days as daysText, remaining, rub, subscriptionStatus } from '../lib/format.js';
@@ -171,6 +172,7 @@ export default function Home() {
     <header className="cabinet-intro"><div><h1>Твой интернет.</h1><p>Всё под контролем.</p></div>
       {list.length > 0 && allowExtra && <Button variant="ghost" size="sm" icon="plus" to="/cabinet/buy">Ещё подписка</Button>}
     </header>
+    <CustomerReview key={me?.id} home owner={me?.id} active={active.length > 0} />
     {payment.notice && <div className="cabinet-status" role="status">
       {payment.notice} <Button size="sm" variant="ghost" onClick={payment.check}>Проверить</Button>
     </div>}

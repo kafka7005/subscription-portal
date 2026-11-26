@@ -4,6 +4,16 @@ import { useLoad } from '../lib/hooks.js';
 import { reviewApi, reviewStatus } from '../lib/reviews.js';
 import { Button, Card, ErrorBox, Segmented, Spinner, Toggle, useToast } from '../ui/index.jsx';
 
+function RewardEditor({ amount, busy, save }) {
+  const [value, setValue] = useState(String(amount));
+  return <form className="stack" onSubmit={e => { e.preventDefault(); save(Number(value)); }}>
+    <label className="stack">Награда за одобренный отзыв, ₽
+      <input className="input" type="number" min="0" max="10000" step="1" required value={value} onChange={e => setValue(e.target.value)} /></label>
+    <small className="muted">0 ₽ отключает награду. При одобрении сумма один раз поступит на баланс клиента, независимо от оценки.</small>
+    <div><Button type="submit" variant="secondary" disabled={busy || !value || Number(value) === amount}>Сохранить сумму</Button></div>
+  </form>;
+}
+
 export default function ReviewModeration() {
   const [status, setStatus] = useState('pending');
   const [page, setPage] = useState(0);
@@ -14,9 +24,9 @@ export default function ReviewModeration() {
   async function change(path, payload, message) {
     setBusy(true);
     try {
-      await api.put(reviewApi + '/admin/' + path, payload);
-      toast(message);
-      if (path !== 'visibility' && data.items.length === 1 && page) setPage(page - 1);
+      const result = await api.put(reviewApi + '/admin/' + path, payload);
+      toast(result?.awarded_rub ? message + ` · начислено ${result.awarded_rub} ₽` : message);
+      if (!['visibility', 'reward'].includes(path) && data.items.length === 1 && page) setPage(page - 1);
       else await reload();
     } catch (err) { toast.error(err); if (err.status === 409) await reload(); }
     finally { setBusy(false); }
@@ -27,7 +37,9 @@ export default function ReviewModeration() {
   return <div className="stack"><Card title="Отзывы на лендинге"><div className="stack">
     <Toggle label="Показывать одобренные отзывы" checked={data.enabled} disabled={busy || loading}
       onChange={enabled => change('visibility', { enabled }, enabled ? 'Показ включён' : 'Показ выключен')} />
-    <p className="muted">Когда показ выключен, клиенты по-прежнему могут оставить отзыв в профиле.</p>
+    <p className="muted">Когда показ выключен, клиенты по-прежнему могут оставить отзыв на главной странице кабинета и в профиле.</p>
+    {Number.isInteger(data.reward_rub) && <RewardEditor key={data.reward_rub} amount={data.reward_rub} busy={busy || loading}
+      save={reward_rub => change('reward', { reward_rub }, 'Награда сохранена')} />}
   </div></Card>
   <Card title="Модерация"><div className="stack">
     <Segmented label="Статус отзыва" value={status} options={Object.entries(reviewStatus).map(([value,label]) => ({ value, label }))}

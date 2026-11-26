@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { useLoad } from '../lib/hooks.js';
 import { reviewApi, reviewStatus } from '../lib/reviews.js';
-import { Badge, Button, Card, ErrorBox, Input, Textarea, useConfirm, useToast } from '../ui/index.jsx';
+import { Badge, Button, Card, ErrorBox, Input, Modal, Textarea, useConfirm, useToast } from '../ui/index.jsx';
 
 function ReviewForm({ review, onSaved, onCancel, reload }) {
   const [author, setAuthor] = useState(review?.author || '');
@@ -37,12 +37,26 @@ function ReviewForm({ review, onSaved, onCancel, reload }) {
   </form>;
 }
 
-export default function CustomerReview() {
+const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000;
+
+export default function CustomerReview({ home = false, owner, active = false }) {
+  const [open, setOpen] = useState(false);
+  const [invited, setInvited] = useState(false);
   const { data, error, reload, setData } = useLoad(signal => api.get(reviewApi + '/mine', {}, { signal }));
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
   const confirm = useConfirm();
+  useEffect(() => {
+    if (!home || !owner || !active || !data || data.review || data.awarded_rub || error) return;
+    try {
+      const key = 'review-invitation:' + owner;
+      const now = Date.now();
+      if (now - Number(localStorage.getItem(key) || 0) < TWO_WEEKS) return;
+      localStorage.setItem(key, String(now));
+      setInvited(true);
+    } catch { /* The permanent review button also works without storage. */ }
+  }, [home, owner, active, data, error]);
   if (error?.status === 404 || (!data && !error)) return null;
   const review = data?.review;
   async function withdraw() {
@@ -50,15 +64,22 @@ export default function CustomerReview() {
     setBusy(true);
     try {
       await api.del(reviewApi + '/mine?revision=' + encodeURIComponent(review.revision));
-      setData({ review: null });
+      setData(prev => ({ ...prev, review: null }));
+      setOpen(false);
       toast('Отзыв удалён');
     } catch (err) { toast.error(err); await reload(); } finally { setBusy(false); }
   }
-  return <Card title="Мой отзыв">
+  const reward = data?.awarded_rub > 0 ? `За отзыв начислено ${data.awarded_rub} ₽.`
+    : data?.reward_rub > 0 ? `Награда за первый одобренный отзыв — ${data.reward_rub} ₽ при текущих настройках. Подойдёт любая оценка.` : null;
+  function close() {
+    setOpen(false);
+    setEditing(false);
+  }
+  const content = <>
     {error ? <ErrorBox error={error} onRetry={() => reload()} /> : editing
-      ? <ReviewForm key={review?.revision || 'new'} review={review} onCancel={() => setEditing(false)}
+      ? <ReviewForm key={review?.revision || 'new'} review={review} onCancel={() => { if (home && !review) close(); else setEditing(false); }}
           reload={() => { setEditing(false); reload(); }}
-          onSaved={value => { setData(value); setEditing(false); toast('Отзыв отправлен на модерацию'); }} />
+          onSaved={value => { setData(prev => ({ ...prev, ...value })); setInvited(false); close(); toast('Отзыв отправлен на модерацию'); }} />
       : <div className="stack">
         {review ? <><div className="row"><strong>{review.author}</strong><span>{review.rating} / 5</span>
           <Badge tone={review.status === 'approved' ? 'ok' : 'neutral'}>{reviewStatus[review.status]}</Badge></div>
@@ -66,5 +87,19 @@ export default function CustomerReview() {
         <div className="row"><Button variant="secondary" disabled={busy} onClick={() => setEditing(true)}>{review ? 'Редактировать' : 'Оставить отзыв'}</Button>
           {review && <Button variant="ghost" busy={busy} onClick={withdraw}>Удалить</Button>}</div>
       </div>}
-  </Card>;
+  </>;
+  if (!home) return <Card title="Мой отзыв">{reward && <p className="muted">{reward}</p>}{content}</Card>;
+  return <>
+    <section className="home-review-entry" aria-label="Отзывы">
+      <div><strong>{invited && !review ? 'Как вам сервис?' : 'Ваш отзыв'}</strong>
+        <small>{review ? reviewStatus[review.status] : invited ? 'Расскажите, что удобно и что стоит улучшить.' : 'Поделитесь впечатлениями о подписке.'}</small>
+        {reward && <small>{reward}</small>}</div>
+      <div className="row"><Button variant="secondary" onClick={() => { setInvited(false); setEditing(!review); setOpen(true); }}>
+        {review ? 'Мой отзыв' : 'Оставить отзыв'}</Button>
+        {invited && !review && <Button variant="ghost" size="sm" onClick={() => setInvited(false)}>Позже</Button>}</div>
+    </section>
+    <Modal open={open} onClose={close} title={review ? 'Мой отзыв' : 'Оставить отзыв'}>
+      {reward && <p className="muted">{reward}</p>}{content}
+    </Modal>
+  </>;
 }

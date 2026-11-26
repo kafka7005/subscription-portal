@@ -1,4 +1,5 @@
 import { useGiveawayConfig } from '../lib/giveaways.js';
+import { Notifications } from '../cabinet/Topbar.jsx';
 import { UpdateNotice } from './SiteUpdates.jsx';
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -43,6 +44,14 @@ export default function AdminLayout() {
   const location = useLocation();
   const theme = useCabinetTheme();
   useApplyCabinetTheme(theme.light);
+  const [mobileHeader, setMobileHeader] = useState(() => window.matchMedia('(max-width: 999px)').matches);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 999px)');
+    const sync = () => setMobileHeader(media.matches);
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
   const [unanswered, setUnanswered] = useState(0);
   const [payouts, setPayouts] = useState(0);
 
@@ -81,10 +90,11 @@ export default function AdminLayout() {
           <MenuButton onClick={drawer.show} />
           <AppBrand to="/admin" badge={roleBadge} />
           {themeButton}
+          {isAdmin && mobileHeader && <Notifications />}
         </header>
         <header className="topbar admin-topbar">
           <span className="admin-workspace">Управление сервисом <span className="badge">{roleBadge}</span></span>
-          <div className="topbar-right">{themeButton}<Button variant="ghost" size="sm" icon="home" to="/cabinet">Мой кабинет</Button></div>
+          <div className="topbar-right">{isAdmin && !mobileHeader && <Notifications />}{themeButton}<Button variant="ghost" size="sm" icon="home" to="/cabinet">Мой кабинет</Button></div>
         </header>
         <main className="app-main">
           <div className="app-content page-enter" key={location.pathname}><ErrorBoundary resetKey={location.pathname}><Outlet /></ErrorBoundary></div>

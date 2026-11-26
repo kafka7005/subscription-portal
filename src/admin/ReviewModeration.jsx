@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useLoad } from '../lib/hooks.js';
 import { reviewApi, reviewStatus } from '../lib/reviews.js';
@@ -15,6 +16,11 @@ function RewardEditor({ amount, busy, save }) {
 }
 
 export default function ReviewModeration() {
+  const location = useLocation();
+  return <ReviewQueue key={location.key} />;
+}
+
+function ReviewQueue() {
   const [status, setStatus] = useState('pending');
   const [page, setPage] = useState(0);
   const [busy, setBusy] = useState(false);

@@ -8,7 +8,7 @@ import { relative, rub } from '../lib/format.js';
 import { Button, Icon, Spinner } from '../ui/index.jsx';
 import { AppBrand, Avatar } from '../ui/shell.jsx';
 
-function Notifications() {
+export function Notifications() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [data, setData] = useState(null);

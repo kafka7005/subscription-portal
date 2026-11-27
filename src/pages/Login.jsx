@@ -1,3 +1,4 @@
+import { useBackdropDismiss } from '../lib/hooks.js';
 import { safeNext } from '../lib/safeNext.js';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -143,6 +144,7 @@ export function LoginPanel({ next = '/cabinet', onDone }) {
 
 // Окно входа поверх текущей страницы (оформлено как остальные окна кабинета).
 export function LoginModal({ open, onClose, next }) {
+  const backdrop = useBackdropDismiss(onClose);
   useEffect(() => {
     if (!open) return undefined;
     const prev = document.body.style.overflow;
@@ -152,7 +154,7 @@ export function LoginModal({ open, onClose, next }) {
     return () => { document.body.style.overflow = prev; document.removeEventListener('keydown', onKey); };
   }, [open, onClose]);
   if (!open) return null;
-  return <div className="app login-overlay" role="dialog" aria-modal="true" aria-label="Вход" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+  return <div className="app login-overlay" role="dialog" aria-modal="true" aria-label="Вход" {...backdrop}>
     <div className="login-sheet card">
       <IconButton icon="x" label="Закрыть" className="login-close" onClick={onClose} />
       <LoginPanel next={next} onDone={onClose} />

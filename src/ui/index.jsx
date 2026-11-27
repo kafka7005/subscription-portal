@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useBackdropDismiss } from '../lib/hooks.js';
 import { Icon } from './icons.jsx';
 import { copyText } from '../lib/format.js';
 
@@ -165,6 +166,7 @@ export function CopyField({ value, label, mono = true }) {
 /* ---------- Модальные окна ---------- */
 export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
   const ref = useRef(null);
+  const backdrop = useBackdropDismiss(onClose);
   useEffect(() => {
     const el = ref.current;
     if (!el) return undefined;
@@ -185,7 +187,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
   }, [open]);
   if (!open) return null;
   return <dialog ref={ref} className={`modal modal-${size}`} onCancel={(e) => { e.preventDefault(); onClose(); }}
-    onClick={(e) => { if (e.target === ref.current) onClose(); }}>
+    {...backdrop}>
     <div className="modal-body">
       <header className="modal-head">
         <h2>{title}</h2>

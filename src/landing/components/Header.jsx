@@ -1,5 +1,6 @@
 import { TelegramIcon } from '../../ui/icons.jsx';
 import { useEffect, useId, useRef, useState } from 'react';
+import { useBackdropDismiss } from '../../lib/hooks.js';
 import Brand from './Brand.jsx';
 import { links } from '../../lib/site.js';
 
@@ -21,6 +22,7 @@ function LanguageSwitch({ locale, onChange, label }) {
 export default function Header({ copy, locale, width, onLocaleChange, onOpen, loggedIn }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const backdrop = useBackdropDismiss(() => setMenuOpen(false));
   const toggleRef = useRef(null);
   useEffect(() => { if (width >= 1000) setMenuOpen(false); }, [width]);
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function Header({ copy, locale, width, onLocaleChange, onOpen, lo
       </div>
     </div>
     <dialog ref={menuRef} className="mobile-menu" id="mobile-navigation" aria-label={copy.navigation} onCancel={() => setMenuOpen(false)}
-      onClick={(event) => { if (event.target === menuRef.current) { const rect = event.target.getBoundingClientRect(); if (event.clientY > rect.bottom || event.clientX < rect.left) setMenuOpen(false); } }}>
+      {...backdrop}>
       <div className="mobile-menu-heading"><span onClick={() => setMenuOpen(false)}><Brand homeLabel={copy.home} /></span><button className="menu-close" type="button" onClick={() => setMenuOpen(false)} aria-label={copy.close}>×</button></div>
       <nav className="mobile-navigation" aria-label={copy.navigation}>
         <a href="#plans" onClick={() => setMenuOpen(false)}>{copy.plans}</a>

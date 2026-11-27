@@ -1,5 +1,40 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+function isBackdrop(event) {
+  const surface = event.currentTarget;
+  if (event.target !== surface) return false;
+  if (surface.tagName !== 'DIALOG') {
+    return surface.ownerDocument.elementFromPoint(event.clientX, event.clientY) === surface;
+  }
+  // Native dialogs receive pointer events for both their box and ::backdrop.
+  const { left, right, top, bottom } = surface.getBoundingClientRect();
+  return event.clientX < left || event.clientX >= right || event.clientY < top || event.clientY >= bottom;
+}
+
+export function useBackdropDismiss(onClose) {
+  const pointer = useRef(null);
+  const completed = useRef(false);
+  return {
+    onPointerDownCapture(event) {
+      completed.current = false;
+      pointer.current = event.isPrimary && event.button === 0 && isBackdrop(event) ? event.pointerId : null;
+    },
+    onPointerUpCapture(event) {
+      completed.current = pointer.current === event.pointerId && isBackdrop(event);
+      pointer.current = null;
+    },
+    onPointerCancelCapture() {
+      pointer.current = null;
+      completed.current = false;
+    },
+    onClick(event) {
+      const dismiss = completed.current && event.target === event.currentTarget;
+      completed.current = false;
+      if (dismiss) onClose();
+    },
+  };
+}
+
 // Загрузка данных с состоянием: { data, error, loading, reload, setData }.
 // deps — когда перезагружать; fetcher получает AbortSignal.
 export function useLoad(fetcher, deps = []) {

@@ -32,7 +32,14 @@
 .lr-byline { gap: 18px; margin-top: 24px; border-top: 1px solid #c4ceb4; padding-top: 14px; justify-content: space-between; }
 .lr-byline strong { overflow-wrap: anywhere; }
 .lr-byline span { color: #4a641f; white-space: nowrap; letter-spacing: 2px; }
-.lr-rail { margin-top: 12px; display: flex; overflow: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.lr-rail {
+  --rail-fade: clamp(14px, 4%, 48px);
+  --rail-mask: linear-gradient(to right, transparent, #000 var(--rail-fade), #000 calc(100% - var(--rail-fade)), transparent);
+  margin-top: 12px; display: flex; overflow: auto; scrollbar-width: none; overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--rail-fade);
+  -webkit-mask-image: var(--rail-mask);
+  mask-image: var(--rail-mask);
+}
 .lr-rail::-webkit-scrollbar { display: none; }
 .lr-group { display: flex; flex: none; gap: 10px; padding: 4px 10px 5px 0; }
 .lr-group button { display: grid; text-align: left; gap: 7px; padding: 15px 18px; border-radius: 14px; background: var(--landing-surface); color: var(--landing-ink); border: 1px solid var(--landing-line); font: inherit; width: clamp(220px, 30vw, 370px); cursor: pointer; }

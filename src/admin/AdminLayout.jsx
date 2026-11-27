@@ -1,3 +1,6 @@
+import { readModuleVersion } from './ModuleUpdates.jsx';
+import { useLoad } from '../lib/hooks.js';
+import { reviewApi } from '../lib/reviews.js';
 import { useGiveawayConfig } from '../lib/giveaways.js';
 import { Notifications } from '../cabinet/Topbar.jsx';
 import { UpdateNotice } from './SiteUpdates.jsx';
@@ -52,21 +55,36 @@ export default function AdminLayout() {
     media.addEventListener('change', sync);
     return () => media.removeEventListener('change', sync);
   }, []);
-  const [unanswered, setUnanswered] = useState(0);
-  const [payouts, setPayouts] = useState(0);
-
-  // Счётчик неотвеченных тикетов в меню — раз в минуту.
+  const onDashboard = location.pathname.replace(/\/$/, '') === '/admin';
+  const partnerOn = isAdmin && Boolean(config?.features?.partner_enabled);
+  const module = useLoad(signal => isAdmin ? readModuleVersion(signal) : null, [isAdmin, me?.id]);
+  const tickets = useLoad(signal => api.get('/admin/tickets-metrics', null, { signal }), [location.pathname, me?.id]);
+  const pendingPayouts = useLoad(signal => partnerOn ? api.get('/partners/payouts/pending', { limit: 1 }, { signal }) : null,
+    [partnerOn, location.pathname, me?.id]);
+  const reviews = useLoad(signal => isAdmin && onDashboard ? api.get(reviewApi + '/admin/pending-count', null, { signal }) : null,
+    [isAdmin, onDashboard, me?.id]);
+  const refreshTickets = tickets.reload, refreshPayouts = pendingPayouts.reload, refreshReviews = reviews.reload, refreshVersion = module.reload;
   useEffect(() => {
-    let alive = true;
-    // Счётчики в меню: неотвеченные тикеты и ожидающие заявки на вывод партнёрских денег.
-    const load = () => {
-      api.get('/admin/tickets/unanswered-count').then((r) => alive && setUnanswered(r?.count || 0)).catch(() => {});
-      if (isAdmin) api.get('/partners/payouts/pending', { limit: 1 }).then((r) => alive && setPayouts(r?.total || 0)).catch(() => {});
+    const refresh = () => {
+      if (document.hidden) return;
+      refreshTickets(true);
+      if (partnerOn) refreshPayouts(true);
+      if (isAdmin && onDashboard) refreshReviews(true);
+      if (isAdmin) refreshVersion(true);
     };
-    load();
-    const id = setInterval(() => { if (!document.hidden) load(); }, 60000);
-    return () => { alive = false; clearInterval(id); };
-  }, [isAdmin, location.pathname]);
+    const timer = setInterval(refresh, 60000);
+    window.addEventListener('focus', refresh);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); };
+  }, [partnerOn, isAdmin, onDashboard, refreshTickets, refreshPayouts, refreshReviews, refreshVersion]);
+  const byStatus = tickets.data?.by_status;
+  const unanswered = byStatus && !tickets.error ? (byStatus.open || 0) + (byStatus.pending || 0) : null;
+  const payouts = partnerOn && !pendingPayouts.error ? pendingPayouts.data?.total : null;
+  const attention = {
+    unanswered, payouts, reviews: isAdmin && !reviews.error ? reviews.data?.count : null,
+    reviewCountMissing: [404, 405].includes(reviews.error?.status),
+    failed: [tickets.error && 'обращения', partnerOn && pendingPayouts.error && 'заявки на вывод',
+      isAdmin && reviews.error && ![404, 405].includes(reviews.error.status) && 'отзывы'].filter(Boolean),
+  };
 
   const giveawayConfig = useGiveawayConfig();
   const items = adminNav({ giveawaysOn: isAdmin && giveawayConfig?.manage, isAdmin, unanswered, payouts, partnerOn: config?.features?.partner_enabled });
@@ -97,7 +115,7 @@ export default function AdminLayout() {
           <div className="topbar-right">{isAdmin && !mobileHeader && <Notifications />}{themeButton}<Button variant="ghost" size="sm" icon="home" to="/cabinet">Мой кабинет</Button></div>
         </header>
         <main className="app-main">
-          <div className="app-content page-enter" key={location.pathname}><ErrorBoundary resetKey={location.pathname}><Outlet /></ErrorBoundary></div>
+          <div className="app-content page-enter" key={location.pathname}><ErrorBoundary resetKey={location.pathname}><Outlet context={{ moduleVersion: module.error ? null : module.data, attention }} /></ErrorBoundary></div>
         </main>
       </div>
     </div>

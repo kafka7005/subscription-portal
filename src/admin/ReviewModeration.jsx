@@ -1,3 +1,4 @@
+import ModuleCompatibility from './ModuleCompatibility.jsx';
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { api } from '../lib/api.js';
@@ -43,7 +44,7 @@ function ReviewQueue() {
     } catch (err) { toast.error(err); if (err.status === 409) await reload(); }
     finally { setBusy(false); }
   }
-  if (error?.status === 404) return <Card title="Отзывы"><p>Для модерации установите модуль версии 1.8.0 или новее.</p></Card>;
+  if (error?.status === 404) return <Card title="Отзывы"><ModuleCompatibility requirements={[{ label: "Модерация отзывов", minimum: "1.8.0", missing: true }]} /></Card>;
   if (error) return <ErrorBox error={error} onRetry={() => reload()} />;
   if (!data) return <Spinner />;
   return <div className="stack"><Card title="Отзывы на лендинге"><div className="stack">
@@ -53,6 +54,11 @@ function ReviewQueue() {
     {Number.isInteger(data.reward_rub) && <RewardEditor key={data.reward_rub} amount={data.reward_rub} busy={busy || loading}
       save={reward_rub => change('reward', { reward_rub }, 'Награда сохранена')} />}
   </div></Card>
+  <ModuleCompatibility requirements={[
+    { label: 'Награда за отзыв', minimum: '1.9.0', missing: !Number.isInteger(data.reward_rub) },
+    { label: 'Удаление отзывов', minimum: '1.9.1', missing: !data.can_delete },
+    { label: 'Уведомления о новых отзывах', minimum: '1.9.2' },
+  ]} />
   <Card title="Модерация"><div className="stack">
     <Segmented label="Статус отзыва" value={status} options={Object.entries(reviewStatus).map(([value,label]) => ({ value, label }))}
       onChange={value => { if (!busy) { setStatus(value); setPage(0); } }} />

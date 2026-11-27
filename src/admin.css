@@ -311,3 +311,9 @@ html.cabinet-graphite .customer-panel .support-customer > .customer-identity { p
 @container (min-width:360px) {
   .customer-ops .field { display:grid; grid-template-columns:minmax(100px,.8fr) minmax(0,1.3fr); align-items:center; gap:12px; }
 }
+
+.attention-queues { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 8px; }
+.attention-queue { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 10px; background: var(--cab-soft); color: var(--cab-ink); }
+.attention-queue strong { color: var(--cab-accent); font-variant-numeric: tabular-nums; }
+.attention-queue span:last-child { margin-inline-start: auto; }
+.attention-queue:hover { background: var(--cab-raised); }

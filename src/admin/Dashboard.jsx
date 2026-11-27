@@ -1,4 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom';
+import ModuleCompatibility from './ModuleCompatibility.jsx';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
 import { useDocumentTitle, useLoad } from '../lib/hooks.js';
@@ -17,14 +18,18 @@ function revenue(items) {
 
 export default function Dashboard() {
   useDocumentTitle('Сводка');
-  const { isAdmin, config } = useAuth();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
+  const { attention } = useOutletContext();
+  const queues = [
+    { label: 'Обращения без ответа', count: attention.unanswered, to: '/admin/tickets?f=active' },
+    { label: 'Заявки на вывод', count: attention.payouts, to: '/admin/partners' },
+    { label: 'Отзывы на модерации', count: attention.reviews, to: '/admin/site?tab=reviews' },
+  ].filter(queue => queue.count > 0);
   const stats = useLoad((signal) => soft(api.get('/admin/keys/stats', null, { signal })), []);
   const payments = useLoad((signal) => soft(api.get('/admin/payments', { status: 'success', limit: 200 }, { signal })), []);
   const tickets = useLoad((signal) => soft(api.get('/admin/tickets', { status: 'open', limit: 5 }, { signal })), []);
-  const unanswered = useLoad((signal) => soft(api.get('/admin/tickets/unanswered-count', null, { signal })), []);
   const users = useLoad((signal) => soft(api.get('/users/search', { limit: 1 }, { signal })), []);
-  const payouts = useLoad((signal) => (isAdmin && config?.features?.partner_enabled ? soft(api.get('/partners/payouts/pending', { limit: 1 }, { signal })) : null), [isAdmin, config]);
   const servers = useLoad((signal) => (isAdmin ? soft(api.get('/servers/stats', null, { signal })) : null), [isAdmin]);
 
   const s = stats.data;
@@ -32,16 +37,17 @@ export default function Dashboard() {
 
   return <>
     <PageHead title="Сводка" subtitle="Главное по сервису на сегодня. Цифры кликабельны." />
-    {payouts.data?.total > 0 && <Link to="/admin/partners" className="alert-row anim-pop">
-      <span className="alert-dot" />
-      <span><b>Заявок на вывод от партнёров: {payouts.data.total}</b> — проверьте реквизиты и подтвердите выплату.</span>
-      <span className="alert-cta">Открыть →</span>
-    </Link>}
-    <div className="grid grid-4">
+    {queues.length > 0 && <Card title="Требует внимания"><div className="attention-queues">
+      {queues.map(queue => <Link to={queue.to} key={queue.to} className="attention-queue">
+        <strong>{queue.count}</strong><span>{queue.label}</span><span aria-hidden="true">→</span>
+      </Link>)}
+    </div></Card>}
+    {attention.failed.length > 0 && <p role="status" className="muted">Не удалось загрузить очереди: {attention.failed.join(', ')}.</p>}
+    {isAdmin && attention.reviewCountMissing && <ModuleCompatibility requirements={[{ label: 'Счётчик отзывов на модерации', minimum: '1.9.3', missing: true }]} />}
+    <div className="grid grid-3">
       <Stat label="Активных подписок" value={s ? s.active : '—'} hint={s ? `всего ${s.total_keys}, заморожено ${s.frozen}` : null} to="/admin/subscriptions" />
       <Stat label="Истекают за 3 дня" value={s ? s.expiring?.['3d'] ?? 0 : '—'} hint={s ? `за неделю ${s.expiring?.['7d'] ?? 0}` : null} tone={s?.expiring?.['3d'] ? 'warn' : undefined} />
       <Stat label="Выручка за 30 дней" value={payments.data ? rub(rev.sum) : '—'} hint={payments.data ? `${rev.count} оплат${payments.data.total > 200 ? ' (по последним 200)' : ''}` : null} to="/admin/payments" />
-      <Stat label="Ждут ответа" value={unanswered.data ? unanswered.data.count : '—'} hint="обращения в поддержку" tone={unanswered.data?.count ? 'warn' : undefined} to="/admin/tickets" />
     </div>
 
     <div className="grid grid-main">

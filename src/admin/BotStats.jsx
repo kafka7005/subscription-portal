@@ -1,3 +1,4 @@
+import ModuleCompatibility from './ModuleCompatibility.jsx';
 import { useState } from 'react';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.jsx';
@@ -77,7 +78,7 @@ function Report({ section, days }) {
   return <Card title={sections.find(([key]) => key === section)[1]}
     actions={<Button size="sm" variant="secondary" icon="refresh" busy={state.loading}
       onClick={() => state.reload()}>Обновить</Button>}>
-    {unavailable ? <p role="status">Для этого отчёта нужен модуль API версии 1.3.0 или новее и совместимая версия бота.</p>
+    {unavailable ? <ModuleCompatibility requirements={[{ label: "Отчёты бота", minimum: "1.3.0", missing: true }]} fallback="Проверьте также совместимость версии бота." />
       : state.error ? <ErrorBox error={state.error} onRetry={state.reload} />
       : !state.data ? <Spinner />
       : chart ? <figure className="bot-stats-chart">

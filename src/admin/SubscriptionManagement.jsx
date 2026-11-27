@@ -1,3 +1,4 @@
+import ModuleCompatibility from './ModuleCompatibility.jsx';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
@@ -105,7 +106,7 @@ export default function SubscriptionManagement({ mode, sub, onClose, onDone }) {
   const state = useLoad(signal => api.get(path+'/configuration', null, {signal}), [path]);
   const Form = mode === 'limits' ? LimitsForm : ReissueForm;
   return <Modal open onClose={onClose} size="sm" title={mode === 'limits' ? 'Лимиты устройств и трафика' : 'Перевыпуск подписки'}>
-    {state.error?.status === 404 ? <p className="notice">Проверьте, что подписка существует и на сервере бота установлен модуль API версии 1.5.0 или новее.</p>
+    {state.error?.status === 404 ? <ModuleCompatibility requirements={[{ label: "Управление лимитами и перевыпуск", minimum: "1.5.0", missing: true }]} fallback="Проверьте также, что подписка существует." />
       : <Loadable state={state}>{data => <Form data={data} sub={sub} path={path} finish={() => {onDone();onClose();}} />}</Loadable>}
   </Modal>;
 }

@@ -15,6 +15,10 @@ const messages = {
 };
 const endpoint = '/portal/module-update';
 
+export function readModuleVersion(signal) {
+  return api.get(endpoint + '/version', null, { signal }).then(data => data.version);
+}
+
 export default function ModuleUpdates() {
   const confirm = useConfirm();
   const [state, setState] = useState(null);

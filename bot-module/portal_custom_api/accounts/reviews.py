@@ -244,6 +244,13 @@ def get_router(prefix):
             raise changed()
         return {"ok": True}
 
+    @router.get("/admin/pending-count")
+    async def pending_count(identity=Depends(verify_identity_admin), session=Depends(get_session)):
+        if not await exists(session):
+            return {"count": 0}
+        count = await session.scalar(text("SELECT count(*) FROM portal_customer_reviews WHERE status='pending'"))
+        return {"count": count}
+
     @router.get("/admin")
     async def queue(status: Status = "pending", offset: int = Query(0, ge=0),
                     identity=Depends(verify_identity_admin), session=Depends(get_session)):

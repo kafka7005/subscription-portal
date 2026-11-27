@@ -123,6 +123,17 @@ class ReviewTests(unittest.TestCase):
         self.assertIsNone(self.request("GET", "/mine", "first").json()["review"])
         self.assertEqual(self.request("GET", "/admin?status=approved", "staff").json()["items"], [])
 
+    def test_pending_count(self):
+        route = "/admin/pending-count"
+        self.assertEqual(self.request("GET", route).status_code, 401)
+        self.assertEqual(self.request("GET", route, "first").status_code, 403)
+        self.assertEqual(self.request("GET", route, "staff").json(), {"count": 0})
+        for i in range(24):
+            item = self.request("PUT", "/mine", f"fixture-{i}", json=self.body).json()["review"]
+        self.assertEqual(self.request("GET", route, "staff").json(), {"count": 24})
+        self.request("PUT", "/admin/" + item["id"], "staff", json={"revision":item["revision"], "status":"hidden"}).raise_for_status()
+        self.assertEqual(self.request("GET", route, "staff").json(), {"count": 23})
+
     def test_reward_lifecycle(self):
         def submit():
             return self.request("PUT", "/mine", "first", json={**self.body, "rating":1}).json()["review"]
